@@ -1,0 +1,9 @@
+export const ROOM_CODE_LENGTH = 4;
+export const MAX_PLAYER_NAME_LENGTH = 24;
+export const MIN_PLAYERS_TO_START = 2;
+export const DEFAULT_TOTAL_ROUNDS = 3;
+export const DEV_ROOM_CODE = "DEV1";
+export const CHOOSE_WORD_DURATION_MS = 15_000;
+export const DRAWING_DURATION_MS = 60_000;
+export const DRAWING_HINT_REVEAL_DELAY_MS = 40_000;
+export const INTERMISSION_DURATION_MS = 2_000;

@@ -1,0 +1,163 @@
+:root {
+  /* ── Backgrounds ── */
+  --color-bg-page:        #ece7df;
+  --color-bg-card:        #ffffff;
+  --color-bg-subtle:      #f5f0ea;
+  --color-bg-peach:       #fdf0e8;
+  --color-bg-sage:        #edf4ef;
+  --color-bg-blue:        #ebf0f7;
+  --color-bg-gold:        #fff8e6;
+  --color-bg-warning:     #fffbeb;
+  --color-bg-error:       #fef2f2;
+
+  /* ── Text ── */
+  --color-text-primary:   #292119;
+  --color-text-secondary: #7a6f64;
+  --color-text-muted:     #a69b90;
+  --color-text-warm:      #b07a5e;
+  --color-text-warning:   #92400e;
+  --color-text-correct:   #059669;
+  --color-text-system:    #2563eb;
+
+  /* ── Borders ── */
+  --color-border:         #e0d9d0;
+  --color-border-input:   #d0c8be;
+  --color-border-divider: #ebe5dd;
+  --color-border-warm:    #e8d5c8;
+  --color-border-cool:    #c8d5e5;
+  --color-border-sage:    #c2d9ca;
+  --color-border-gold:    #e0c97a;
+  --color-border-warning: #fde68a;
+  --color-border-error:   #fecaca;
+
+  /* ── Accents ── */
+  --color-accent-terracotta: #c96442;
+  --color-accent-blue:       #5e81ac;
+  --color-accent-sage:       #5f8c72;
+  --color-accent-purple:     #8b7ec8;
+
+  /* ── Status ── */
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-error:   #dc2626;
+  --color-status-system:  #3b82f6;
+
+  /* ── Toolbar ── */
+  --color-toolbar-divider:      #e0d9d0;
+  --color-brush-active-bg:      #292119;
+  --color-brush-active-dot:     #ffffff;
+  --color-brush-inactive-bg:    #ffffff;
+  --color-brush-inactive-dot:   #292119;
+  --color-draw-selected-ring:   #111111;
+}
+
+[data-theme="dark"] {
+  /* ── Backgrounds ── */
+  --color-bg-page:        #1a1614;
+  --color-bg-card:        #262220;
+  --color-bg-subtle:      #2e2a27;
+  --color-bg-peach:       #4a2c1e;
+  --color-bg-sage:        #1e3d2a;
+  --color-bg-blue:        #1c2e4a;
+  --color-bg-gold:        #2b2718;
+  --color-bg-warning:     #2b2618;
+  --color-bg-error:       #2d1f1f;
+
+  /* ── Text ── */
+  --color-text-primary:   #ece7df;
+  --color-text-secondary: #b0a89e;
+  --color-text-muted:     #7a7068;
+  --color-text-warm:      #d4a080;
+  --color-text-warning:   #fbbf24;
+  --color-text-correct:   #34d399;
+  --color-text-system:    #60a5fa;
+
+  /* ── Borders ── */
+  --color-border:         #3d3834;
+  --color-border-input:   #4a443e;
+  --color-border-divider: #342f2b;
+  --color-border-warm:    #7a4535;
+  --color-border-cool:    #3a5278;
+  --color-border-sage:    #3a6050;
+  --color-border-gold:    #5a4e28;
+  --color-border-warning: #5a4e28;
+  --color-border-error:   #5a2e2e;
+
+  /* ── Accents ── */
+  --color-accent-terracotta: #d9784e;
+  --color-accent-blue:       #7a9ec4;
+  --color-accent-sage:       #78a88e;
+  --color-accent-purple:     #a89ed8;
+
+  /* ── Status ── */
+  --color-status-success: #34d399;
+  --color-status-warning: #fbbf24;
+  --color-status-error:   #f87171;
+  --color-status-system:  #60a5fa;
+
+  /* ── Toolbar ── */
+  --color-toolbar-divider:      #3d3834;
+  --color-brush-active-bg:      #ece7df;
+  --color-brush-active-dot:     #1a1614;
+  --color-brush-inactive-bg:    #262220;
+  --color-brush-inactive-dot:   #ece7df;
+  --color-draw-selected-ring:   #ece7df;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--color-text-primary);
+  background: var(--color-bg-page);
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input:focus-visible {
+  outline: 2px solid var(--color-accent-terracotta);
+  outline-offset: 1px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-accent-terracotta);
+  outline-offset: 2px;
+}
+
+input::placeholder {
+  color: var(--color-text-muted);
+}
