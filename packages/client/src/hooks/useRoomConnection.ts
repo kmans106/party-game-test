@@ -11,7 +11,8 @@ import {
   type JoinRoomInput,
   type RoomErrorPayload,
   type RoomState,
-  type SubmitGuessInput
+  type SubmitGuessInput,
+  type UpdateLobbySettingsInput
 } from "@party-game/shared";
 import type { Socket } from "socket.io-client";
 
@@ -37,6 +38,7 @@ type UseRoomConnectionResult = UseRoomConnectionState & {
   sendStroke: (input: CanvasStroke) => void;
   submitGuess: (input: SubmitGuessInput) => void;
   startGame: () => void;
+  updateLobbySettings: (input: UpdateLobbySettingsInput) => void;
 };
 
 export const useRoomConnection = (): UseRoomConnectionResult => {
@@ -190,6 +192,11 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
       setError(null);
       setIsSubmitting(true);
       socket.emit(CLIENT_EVENTS.gameStart);
+    },
+    updateLobbySettings: (input) => {
+      setError(null);
+      setIsSubmitting(true);
+      socket.emit(CLIENT_EVENTS.gameUpdateLobbySettings, input);
     }
   };
 };

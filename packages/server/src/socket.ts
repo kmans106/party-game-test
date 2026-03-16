@@ -2,15 +2,16 @@ import type { Server } from "socket.io";
 
 import {
   CLIENT_EVENTS,
-  DRAWING_DURATION_MS,
-  DRAWING_HINT_REVEAL_DELAY_MS,
   SERVER_EVENTS,
   type CanvasStroke,
   type ChooseWordInput,
   type CreateRoomInput,
   type DevBootstrapInput,
   type JoinRoomInput,
-  type SubmitGuessInput
+  type SubmitGuessInput,
+  type UpdateLobbySettingsInput,
+  getHintRevealDelayMs,
+  getRoundTimerDurationMs
 } from "@party-game/shared";
 
 import { RoomStore } from "./game/room-store.js";
@@ -73,11 +74,13 @@ const syncRoomPhaseTimer = (io: Server, roomCode: string) => {
     return;
   }
 
+  const drawingDurationMs = getRoundTimerDurationMs(room.settings.roundTimerSeconds);
+  const hintRevealDelayMs = getHintRevealDelayMs(room.settings.roundTimerSeconds);
   const hintRevealAt =
     activeGame.turnStage === "drawing" &&
     activeGame.revealedLetterIndices.length === 0 &&
     activeGame.phaseEndsAt !== null
-      ? activeGame.phaseEndsAt - DRAWING_DURATION_MS + DRAWING_HINT_REVEAL_DELAY_MS
+      ? activeGame.phaseEndsAt - drawingDurationMs + hintRevealDelayMs
       : null;
   const nextEventAt =
     hintRevealAt !== null ? Math.min(activeGame.phaseEndsAt, hintRevealAt) : activeGame.phaseEndsAt;
@@ -95,11 +98,13 @@ const syncRoomPhaseTimer = (io: Server, roomCode: string) => {
       return;
     }
 
+    const currentDrawingDurationMs = getRoundTimerDurationMs(currentRoom.settings.roundTimerSeconds);
+    const currentHintRevealDelayMs = getHintRevealDelayMs(currentRoom.settings.roundTimerSeconds);
     const currentHintRevealAt =
       currentGame.turnStage === "drawing" &&
       currentGame.revealedLetterIndices.length === 0 &&
       currentGame.phaseEndsAt !== null
-        ? currentGame.phaseEndsAt - DRAWING_DURATION_MS + DRAWING_HINT_REVEAL_DELAY_MS
+        ? currentGame.phaseEndsAt - currentDrawingDurationMs + currentHintRevealDelayMs
         : null;
     const nextRoom =
       currentGame.turnStage === "drawing" &&
@@ -187,6 +192,16 @@ export const registerSocketHandlers = (io: Server) => {
       emitRoomState(io, result.room.roomCode);
       emitDrawerState(io, result.room.roomCode);
       syncRoomPhaseTimer(io, result.room.roomCode);
+    });
+
+    socket.on(CLIENT_EVENTS.gameUpdateLobbySettings, (input: UpdateLobbySettingsInput) => {
+      const result = roomStore.updateLobbySettings(socket.id, input);
+      if (!result.ok) {
+        emitRoomError(io, socket.id, result.error);
+        return;
+      }
+
+      emitRoomState(io, result.room.roomCode);
     });
 
     socket.on(CLIENT_EVENTS.gameReturnToLobby, () => {

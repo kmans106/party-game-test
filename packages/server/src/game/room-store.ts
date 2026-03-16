@@ -4,14 +4,16 @@ import {
   CHOOSE_WORD_DURATION_MS,
   ChatMessageType,
   DEFAULT_TOTAL_ROUNDS,
+  DEFAULT_ROUND_TIMER_SECONDS,
   DEV_ROOM_CODE,
-  DRAWING_DURATION_MS,
   GamePhase,
   INTERMISSION_DURATION_MS,
   MAX_PLAYER_NAME_LENGTH,
   MIN_PLAYERS_TO_START,
+  ROUND_TIMER_OPTIONS,
   ROOM_CODE_LENGTH,
   RoomErrorCode,
+  TOTAL_ROUNDS_OPTIONS,
   TurnStage,
   type CanvasStroke,
   type ChooseWordInput,
@@ -20,10 +22,13 @@ import {
   type DevBootstrapInput,
   type DrawerStatePayload,
   type JoinRoomInput,
+  type LobbySettings,
   type Player,
   type RoomErrorPayload,
   type RoomState,
-  type SubmitGuessInput
+  type SubmitGuessInput,
+  type UpdateLobbySettingsInput,
+  getRoundTimerDurationMs
 } from "@party-game/shared";
 
 import { getRandomWordChoices } from "./words.js";
@@ -285,7 +290,10 @@ export class RoomStore {
     }
 
     roomRecord.room.phase = GamePhase.Playing;
-    roomRecord.room.activeGame = this.createInitialActiveGame(roomRecord.room.players[0]!.id);
+    roomRecord.room.activeGame = this.createInitialActiveGame(
+      roomRecord.room.players[0]!.id,
+      roomRecord.room.settings
+    );
     roomRecord.drawerState = this.createDrawerState();
     roomRecord.room.chatMessages = [
       this.createSystemMessage(
@@ -355,6 +363,73 @@ export class RoomStore {
     };
   }
 
+  updateLobbySettings(socketId: string, input: UpdateLobbySettingsInput):
+    | {
+        ok: true;
+        room: RoomState;
+      }
+    | {
+        ok: false;
+        error: RoomErrorPayload;
+      } {
+    const roomRecord = this.getRoomRecordBySocketId(socketId);
+    if (!roomRecord) {
+      return {
+        ok: false,
+        error: {
+          code: RoomErrorCode.RoomNotFound,
+          message: "You are not currently in a room."
+        }
+      };
+    }
+
+    const requestingPlayerId = roomRecord.playerIdsBySocketId.get(socketId);
+    if (!requestingPlayerId || roomRecord.room.hostPlayerId !== requestingPlayerId) {
+      return {
+        ok: false,
+        error: {
+          code: RoomErrorCode.NotHost,
+          message: "Only the host can update lobby settings."
+        }
+      };
+    }
+
+    if (roomRecord.room.phase !== GamePhase.Lobby) {
+      return {
+        ok: false,
+        error: {
+          code: RoomErrorCode.InvalidGameState,
+          message: "Lobby settings can only be changed before the game starts."
+        }
+      };
+    }
+
+    if (
+      !TOTAL_ROUNDS_OPTIONS.includes(input.totalRounds as (typeof TOTAL_ROUNDS_OPTIONS)[number]) ||
+      !ROUND_TIMER_OPTIONS.includes(
+        input.roundTimerSeconds as (typeof ROUND_TIMER_OPTIONS)[number]
+      )
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: RoomErrorCode.InvalidLobbySettings,
+          message: "Pick one of the available round and timer options."
+        }
+      };
+    }
+
+    roomRecord.room.settings = {
+      totalRounds: input.totalRounds,
+      roundTimerSeconds: input.roundTimerSeconds
+    };
+
+    return {
+      ok: true,
+      room: roomRecord.room
+    };
+  }
+
   chooseWord(socketId: string, input: ChooseWordInput):
     | {
         ok: true;
@@ -417,7 +492,8 @@ export class RoomStore {
     roomRecord.room.activeGame.revealedLetterIndices = [];
     roomRecord.room.activeGame.wordMask = this.createWordMask(chosenWord, []);
     roomRecord.room.activeGame.revealedWord = null;
-    roomRecord.room.activeGame.phaseEndsAt = Date.now() + DRAWING_DURATION_MS;
+    roomRecord.room.activeGame.phaseEndsAt =
+      Date.now() + getRoundTimerDurationMs(roomRecord.room.settings.roundTimerSeconds);
     roomRecord.room.chatMessages = [
       this.createSystemMessage(`${this.getCurrentDrawerName(roomRecord.room)} started drawing.`)
     ];
@@ -630,7 +706,8 @@ export class RoomStore {
     roomRecord.room.activeGame.revealedLetterIndices = [];
     roomRecord.room.activeGame.wordMask = this.createWordMask(chosenWord, []);
     roomRecord.room.activeGame.revealedWord = null;
-    roomRecord.room.activeGame.phaseEndsAt = Date.now() + DRAWING_DURATION_MS;
+    roomRecord.room.activeGame.phaseEndsAt =
+      Date.now() + getRoundTimerDurationMs(roomRecord.room.settings.roundTimerSeconds);
     roomRecord.room.chatMessages = [
       this.createSystemMessage(`${this.getCurrentDrawerName(roomRecord.room)} started drawing.`)
     ];
@@ -854,6 +931,7 @@ export class RoomStore {
       phase: GamePhase.Lobby,
       players: [player],
       hostPlayerId: player.id,
+      settings: this.createDefaultLobbySettings(),
       activeGame: null,
       chatMessages: []
     };
@@ -1035,10 +1113,17 @@ export class RoomStore {
     };
   }
 
-  private createInitialActiveGame(currentDrawerPlayerId: string) {
+  private createDefaultLobbySettings(): LobbySettings {
+    return {
+      totalRounds: DEFAULT_TOTAL_ROUNDS,
+      roundTimerSeconds: DEFAULT_ROUND_TIMER_SECONDS
+    };
+  }
+
+  private createInitialActiveGame(currentDrawerPlayerId: string, settings: LobbySettings) {
     return {
       roundNumber: 1,
-      totalRounds: DEFAULT_TOTAL_ROUNDS,
+      totalRounds: settings.totalRounds,
       turnIndex: 0,
       currentDrawerPlayerId,
       turnStage: TurnStage.ChoosingWord,

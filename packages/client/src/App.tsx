@@ -40,7 +40,8 @@ export const App = () => {
     sendStroke,
     strokes,
     submitGuess,
-    startGame
+    startGame,
+    updateLobbySettings
   } = useRoomConnection();
 
   const currentPlayer = room?.players.find((player) => player.id === playerId) ?? null;
@@ -172,6 +173,7 @@ export const App = () => {
             isHost={isHost}
             isSubmitting={isSubmitting}
             onStartGame={startGame}
+            onUpdateSettings={updateLobbySettings}
             room={room}
           />
         ) : null}

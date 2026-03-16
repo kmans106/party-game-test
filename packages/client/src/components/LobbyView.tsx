@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { MIN_PLAYERS_TO_START, type RoomState } from "@party-game/shared";
+import {
+  MIN_PLAYERS_TO_START,
+  ROUND_TIMER_OPTIONS,
+  TOTAL_ROUNDS_OPTIONS,
+  type RoomState,
+  type UpdateLobbySettingsInput
+} from "@party-game/shared";
 
 const AVATAR_COLORS = ["#c96442", "#5f8c72", "#5e81ac", "#8b7ec8", "#c49a3c", "#c75b7a"] as const;
 
@@ -10,6 +16,7 @@ type LobbyViewProps = {
   isHost: boolean;
   isSubmitting: boolean;
   onStartGame: () => void;
+  onUpdateSettings: (input: UpdateLobbySettingsInput) => void;
   room: RoomState;
 };
 
@@ -20,10 +27,12 @@ export const LobbyView = ({
   isHost,
   isSubmitting,
   onStartGame,
+  onUpdateSettings,
   room
 }: LobbyViewProps) => {
   const [copied, setCopied] = useState(false);
   const canStartGame = room.players.length >= MIN_PLAYERS_TO_START;
+  const settingsDisabled = !isHost || isSubmitting;
 
   return (
     <section
@@ -186,6 +195,85 @@ export const LobbyView = ({
           paddingTop: "1.25rem"
         }}
       >
+        <div
+          style={{
+            color: "var(--color-text-muted)",
+            fontSize: "0.6875rem",
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            marginBottom: "0.625rem",
+            textTransform: "uppercase"
+          }}
+        >
+          Game settings
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gap: "0.75rem",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            marginBottom: "0.875rem"
+          }}
+        >
+          <label style={{ display: "grid", gap: "0.375rem" }}>
+            <span style={{ color: "var(--color-text-secondary)", fontSize: "0.8125rem", fontWeight: 600 }}>
+              Rounds
+            </span>
+            <select
+              disabled={settingsDisabled}
+              onChange={(event) => {
+                onUpdateSettings({
+                  totalRounds: Number(event.target.value),
+                  roundTimerSeconds: room.settings.roundTimerSeconds
+                });
+              }}
+              style={{
+                background: "var(--color-bg-subtle)",
+                border: "1px solid var(--color-border-input)",
+                borderRadius: "6px",
+                color: "var(--color-text-primary)",
+                fontSize: "0.9375rem",
+                padding: "0.625rem 0.75rem"
+              }}
+              value={room.settings.totalRounds}
+            >
+              {TOTAL_ROUNDS_OPTIONS.map((rounds) => (
+                <option key={rounds} value={rounds}>
+                  {rounds}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: "0.375rem" }}>
+            <span style={{ color: "var(--color-text-secondary)", fontSize: "0.8125rem", fontWeight: 600 }}>
+              Round timer
+            </span>
+            <select
+              disabled={settingsDisabled}
+              onChange={(event) => {
+                onUpdateSettings({
+                  totalRounds: room.settings.totalRounds,
+                  roundTimerSeconds: Number(event.target.value)
+                });
+              }}
+              style={{
+                background: "var(--color-bg-subtle)",
+                border: "1px solid var(--color-border-input)",
+                borderRadius: "6px",
+                color: "var(--color-text-primary)",
+                fontSize: "0.9375rem",
+                padding: "0.625rem 0.75rem"
+              }}
+              value={room.settings.roundTimerSeconds}
+            >
+              {ROUND_TIMER_OPTIONS.map((seconds) => (
+                <option key={seconds} value={seconds}>
+                  {seconds} seconds
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div style={{ color: "var(--color-text-secondary)", fontSize: "0.8125rem", marginBottom: "0.75rem" }}>
           {canStartGame
             ? isHost

@@ -47,11 +47,17 @@ export type ActiveGame = {
   phaseEndsAt: number | null;
 };
 
+export type LobbySettings = {
+  totalRounds: number;
+  roundTimerSeconds: number;
+};
+
 export type RoomState = {
   roomCode: RoomCode;
   phase: GamePhase;
   players: Player[];
   hostPlayerId: PlayerId | null;
+  settings: LobbySettings;
   activeGame: ActiveGame | null;
   chatMessages: ChatMessage[];
 };
@@ -63,6 +69,11 @@ export type CreateRoomInput = {
 export type JoinRoomInput = {
   roomCode: string;
   playerName: string;
+};
+
+export type UpdateLobbySettingsInput = {
+  totalRounds: number;
+  roundTimerSeconds: number;
 };
 
 export type RoomJoinedPayload = {
@@ -103,6 +114,7 @@ export enum RoomErrorCode {
   InvalidGameState = "invalid_game_state",
   InvalidStroke = "invalid_stroke",
   InvalidGuess = "invalid_guess",
+  InvalidLobbySettings = "invalid_lobby_settings",
   InvalidWordChoice = "invalid_word_choice",
   InvalidName = "invalid_name",
   InvalidRoomCode = "invalid_room_code",

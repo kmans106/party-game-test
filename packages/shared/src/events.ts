@@ -4,6 +4,7 @@ export const CLIENT_EVENTS = {
   roomCreate: "room:create",
   roomJoin: "room:join",
   gameStart: "game:start",
+  gameUpdateLobbySettings: "game:update_lobby_settings",
   gameReturnToLobby: "game:return_to_lobby",
   turnChooseWord: "turn:choose_word",
   canvasStroke: "canvas:stroke",
