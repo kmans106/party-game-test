@@ -259,6 +259,10 @@ export const registerSocketHandlers = (io: Server) => {
 
       const socketIds = roomStore.getSocketIdsForRoom(result.roomCode);
       for (const roomSocketId of socketIds) {
+        if (roomSocketId === socket.id) {
+          continue;
+        }
+
         io.to(roomSocketId).emit(SERVER_EVENTS.canvasStroke, result.stroke);
       }
     });

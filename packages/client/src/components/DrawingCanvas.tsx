@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent } from "react";
 import type { CanvasStroke } from "@party-game/shared";
 
 type Point = {
@@ -89,7 +89,8 @@ const interpolateStrokeSegments = (
 
 export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }: DrawingCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [lastPoint, setLastPoint] = useState<Point | null>(null);
+  const lastPointRef = useRef<Point | null>(null);
+  const renderedStrokeCountRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -98,13 +99,24 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
       return;
     }
 
-    context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    const shouldResetCanvas =
+      strokes.length < renderedStrokeCountRef.current || renderedStrokeCountRef.current === 0;
 
-    for (const stroke of strokes) {
-      drawStrokeSegment(context, stroke);
+    if (shouldResetCanvas) {
+      context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      for (const stroke of strokes) {
+        drawStrokeSegment(context, stroke);
+      }
+    } else {
+      for (const stroke of strokes.slice(renderedStrokeCountRef.current)) {
+        drawStrokeSegment(context, stroke);
+      }
     }
+
+    renderedStrokeCountRef.current = strokes.length;
   }, [strokes]);
 
   return (
@@ -133,13 +145,13 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
         }
         onStroke(stroke);
         event.currentTarget.setPointerCapture(event.pointerId);
-        setLastPoint(point);
+        lastPointRef.current = point;
       }}
       onPointerLeave={() => {
-        setLastPoint(null);
+        lastPointRef.current = null;
       }}
       onPointerMove={(event) => {
-        if (!canDraw || !lastPoint) {
+        if (!canDraw || !lastPointRef.current) {
           return;
         }
 
@@ -149,7 +161,7 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
         }
 
         const context = canvasRef.current?.getContext("2d");
-        const segments = interpolateStrokeSegments(lastPoint, point, color, strokeWidth);
+        const segments = interpolateStrokeSegments(lastPointRef.current, point, color, strokeWidth);
         for (const segment of segments) {
           if (context) {
             drawStrokeSegment(context, segment);
@@ -157,13 +169,16 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
 
           onStroke(segment);
         }
-        setLastPoint(point);
+        lastPointRef.current = point;
+      }}
+      onPointerCancel={() => {
+        lastPointRef.current = null;
       }}
       onPointerUp={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId);
         }
-        setLastPoint(null);
+        lastPointRef.current = null;
       }}
       ref={canvasRef}
       style={{
