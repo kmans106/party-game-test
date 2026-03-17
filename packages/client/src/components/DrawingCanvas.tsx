@@ -121,11 +121,15 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
 
   return (
     <canvas
+      onContextMenu={(event) => {
+        event.preventDefault();
+      }}
       onPointerDown={(event) => {
         if (!canDraw) {
           return;
         }
 
+        event.preventDefault();
         const point = getNormalizedPoint(event);
         if (!point) {
           return;
@@ -155,6 +159,7 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
           return;
         }
 
+        event.preventDefault();
         const point = getNormalizedPoint(event);
         if (!point) {
           return;
@@ -187,6 +192,10 @@ export const DrawingCanvas = ({ canDraw, color, onStroke, strokeWidth, strokes }
         border: "1px solid var(--color-border)",
         borderRadius: "6px",
         touchAction: "none",
+        userSelect: "none",
+        WebkitTapHighlightColor: "transparent",
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
         width: "100%"
       }}
       width={CANVAS_WIDTH}
