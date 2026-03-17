@@ -18,11 +18,26 @@ const getDevPlayerName = () => {
   return nextPlayerName;
 };
 
-const getSavedPlayerName = () => window.sessionStorage.getItem("party-game-player-name") ?? "";
+const getSavedPlayerName = () => window.localStorage.getItem("party-game-player-name") ?? "";
+
+const getInitialRoomCode = () =>
+  new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "";
+
+const getOrCreatePlayerSessionId = () => {
+  const existingPlayerSessionId = window.localStorage.getItem("party-game-player-session-id");
+  if (existingPlayerSessionId) {
+    return existingPlayerSessionId;
+  }
+
+  const nextPlayerSessionId = crypto.randomUUID();
+  window.localStorage.setItem("party-game-player-session-id", nextPlayerSessionId);
+  return nextPlayerSessionId;
+};
 
 export const App = () => {
   const [playerName, setPlayerName] = useState(getSavedPlayerName);
-  const [roomCode, setRoomCode] = useState("");
+  const [playerSessionId] = useState(getOrCreatePlayerSessionId);
+  const [roomCode, setRoomCode] = useState(getInitialRoomCode);
   const { theme, toggleTheme } = useTheme();
   const {
     bootstrapDevRoom,
@@ -59,12 +74,24 @@ export const App = () => {
       return;
     }
 
-    bootstrapDevRoom(getDevPlayerName());
-  }, [bootstrapDevRoom, devMode, isConnected, isSubmitting, room]);
+    bootstrapDevRoom({
+      playerName: getDevPlayerName(),
+      playerSessionId
+    });
+  }, [bootstrapDevRoom, devMode, isConnected, isSubmitting, playerSessionId, room]);
 
   useEffect(() => {
-    window.sessionStorage.setItem("party-game-player-name", playerName);
+    window.localStorage.setItem("party-game-player-name", playerName);
   }, [playerName]);
+
+  useEffect(() => {
+    if (!room?.roomCode) {
+      return;
+    }
+
+    setRoomCode(room.roomCode);
+    window.history.replaceState(null, "", `/?room=${room.roomCode}`);
+  }, [room?.roomCode]);
 
   const themeToggle = (
     <button
@@ -151,12 +178,14 @@ export const App = () => {
             isSubmitting={isSubmitting}
             onCreateRoom={() => {
               createRoom({
-                playerName
+                playerName,
+                playerSessionId
               });
             }}
             onJoinRoom={() => {
               joinRoom({
                 playerName,
+                playerSessionId,
                 roomCode
               });
             }}

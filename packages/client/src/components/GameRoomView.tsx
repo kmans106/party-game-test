@@ -52,8 +52,10 @@ export const GameRoomView = ({
   room,
   strokes
 }: GameRoomViewProps) => {
+  const inviteLink = `${window.location.origin}/?room=${room.roomCode}`;
   const [guessText, setGuessText] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const [selectedColor, setSelectedColor] = useState<(typeof DRAW_COLORS)[number]>("#111827");
   const [selectedBrushSize, setSelectedBrushSize] = useState<(typeof BRUSH_SIZES)[number]>(4);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -167,6 +169,28 @@ export const GameRoomView = ({
               >
                 Room {room.roomCode}
               </div>
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(inviteLink);
+                  setCopiedInviteLink(true);
+                  window.setTimeout(() => {
+                    setCopiedInviteLink(false);
+                  }, 1_500);
+                }}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--color-border-input)",
+                  borderRadius: "4px",
+                  color: "var(--color-text-secondary)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  marginTop: "0.375rem",
+                  padding: "0.1875rem 0.5rem"
+                }}
+                type="button"
+              >
+                {copiedInviteLink ? "Invite copied!" : "Copy invite link"}
+              </button>
               <div style={{ color: "var(--color-accent-terracotta)", fontSize: "1.25rem", fontWeight: 700 }}>Game Over</div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -416,6 +440,28 @@ export const GameRoomView = ({
             <div style={{ fontSize: "0.9375rem", fontWeight: 700, lineHeight: 1.2 }}>
               Round {room.activeGame?.roundNumber ?? "-"} / {room.activeGame?.totalRounds ?? "-"}
             </div>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(inviteLink);
+                setCopiedInviteLink(true);
+                window.setTimeout(() => {
+                  setCopiedInviteLink(false);
+                }, 1_500);
+              }}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--color-border-input)",
+                borderRadius: "4px",
+                color: "var(--color-text-secondary)",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                marginTop: "0.375rem",
+                padding: "0.1875rem 0.5rem"
+              }}
+              type="button"
+            >
+              {copiedInviteLink ? "Invite copied!" : "Copy invite link"}
+            </button>
           </div>
           <div style={{ textAlign: "center" }}>
             <div
@@ -569,6 +615,7 @@ export const GameRoomView = ({
                       </div>
                       <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>
                         {player.score} pts
+                        {!player.isConnected ? " \u00B7 reconnecting" : ""}
                         {isDrawing
                           ? " \u00B7 drawing"
                           : hasGuessed

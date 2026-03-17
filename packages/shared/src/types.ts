@@ -64,11 +64,13 @@ export type RoomState = {
 
 export type CreateRoomInput = {
   playerName: string;
+  playerSessionId: string;
 };
 
 export type JoinRoomInput = {
   roomCode: string;
   playerName: string;
+  playerSessionId: string;
 };
 
 export type UpdateLobbySettingsInput = {
@@ -87,6 +89,7 @@ export type ChooseWordInput = {
 
 export type DevBootstrapInput = {
   playerName: string;
+  playerSessionId: string;
 };
 
 export type SubmitGuessInput = {

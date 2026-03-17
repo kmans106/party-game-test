@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEV_ROOM_CODE,
   CLIENT_EVENTS,
+  RoomErrorCode,
   SERVER_EVENTS,
   TurnStage,
   type CanvasStroke,
   type ChooseWordInput,
   type CreateRoomInput,
+  type DevBootstrapInput,
   type DrawerStatePayload,
   type JoinRoomInput,
   type RoomErrorPayload,
@@ -29,7 +31,7 @@ type UseRoomConnectionState = {
 };
 
 type UseRoomConnectionResult = UseRoomConnectionState & {
-  bootstrapDevRoom: (playerName: string) => void;
+  bootstrapDevRoom: (input: DevBootstrapInput) => void;
   chooseWord: (input: ChooseWordInput) => void;
   clearCanvas: () => void;
   createRoom: (input: CreateRoomInput) => void;
@@ -43,6 +45,11 @@ type UseRoomConnectionResult = UseRoomConnectionState & {
 
 export const useRoomConnection = (): UseRoomConnectionResult => {
   const socket = useMemo<Socket>(() => createGameSocket(), []);
+  const reconnectStateRef = useRef<{
+    playerName: string;
+    playerSessionId: string;
+    roomCode: string | null;
+  } | null>(null);
   const [strokes, setStrokes] = useState<CanvasStroke[]>([]);
   const [drawerState, setDrawerState] = useState<DrawerStatePayload | null>(null);
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -54,6 +61,18 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
   useEffect(() => {
     const handleConnect = () => {
       setIsConnected(true);
+
+      const reconnectState = reconnectStateRef.current;
+      if (!reconnectState?.roomCode) {
+        return;
+      }
+
+      setIsSubmitting(true);
+      socket.emit(CLIENT_EVENTS.roomJoin, {
+        playerName: reconnectState.playerName,
+        playerSessionId: reconnectState.playerSessionId,
+        roomCode: reconnectState.roomCode
+      });
     };
 
     const handleDisconnect = () => {
@@ -64,6 +83,12 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
     };
 
     const handleRoomJoined = (payload: { playerId: string; room: RoomState }) => {
+      if (reconnectStateRef.current) {
+        reconnectStateRef.current = {
+          ...reconnectStateRef.current,
+          roomCode: payload.room.roomCode
+        };
+      }
       setPlayerId(payload.playerId);
       setRoom(payload.room);
       setError(null);
@@ -71,6 +96,12 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
     };
 
     const handleRoomState = (nextRoom: RoomState) => {
+      if (reconnectStateRef.current) {
+        reconnectStateRef.current = {
+          ...reconnectStateRef.current,
+          roomCode: nextRoom.roomCode
+        };
+      }
       setRoom(nextRoom);
       setError(null);
       setIsSubmitting(false);
@@ -91,6 +122,11 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
     };
 
     const handleRoomError = (payload: RoomErrorPayload) => {
+      if (payload.code === RoomErrorCode.RoomNotFound) {
+        reconnectStateRef.current = null;
+        setPlayerId(null);
+        setRoom(null);
+      }
       setError(payload.message);
       setIsSubmitting(false);
     };
@@ -150,12 +186,15 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
     isSubmitting,
     playerId,
     room,
-    bootstrapDevRoom: (playerName) => {
+    bootstrapDevRoom: (input) => {
       setError(null);
       setIsSubmitting(true);
-      socket.emit(CLIENT_EVENTS.devBootstrap, {
-        playerName
-      });
+      reconnectStateRef.current = {
+        playerName: input.playerName,
+        playerSessionId: input.playerSessionId,
+        roomCode: DEV_ROOM_CODE
+      };
+      socket.emit(CLIENT_EVENTS.devBootstrap, input);
     },
     chooseWord: (input) => {
       setError(null);
@@ -169,11 +208,21 @@ export const useRoomConnection = (): UseRoomConnectionResult => {
     createRoom: (input) => {
       setError(null);
       setIsSubmitting(true);
+      reconnectStateRef.current = {
+        playerName: input.playerName,
+        playerSessionId: input.playerSessionId,
+        roomCode: null
+      };
       socket.emit(CLIENT_EVENTS.roomCreate, input);
     },
     joinRoom: (input) => {
       setError(null);
       setIsSubmitting(true);
+      reconnectStateRef.current = {
+        playerName: input.playerName,
+        playerSessionId: input.playerSessionId,
+        roomCode: input.roomCode.trim().toUpperCase()
+      };
       socket.emit(CLIENT_EVENTS.roomJoin, input);
     },
     returnToLobby: () => {

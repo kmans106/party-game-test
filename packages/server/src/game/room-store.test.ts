@@ -23,7 +23,8 @@ const createStartedRoom = (
   const socketIds = playerNames.map((_, index) => `socket-${index + 1}`);
 
   const created = store.createRoom(socketIds[0]!, {
-    playerName: playerNames[0]!
+    playerName: playerNames[0]!,
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);
@@ -33,6 +34,7 @@ const createStartedRoom = (
   for (let index = 1; index < playerNames.length; index += 1) {
     const joined = store.joinRoom(socketIds[index]!, {
       playerName: playerNames[index]!,
+      playerSessionId: `session-${index + 1}`,
       roomCode
     });
     if (!joined.ok) {
@@ -86,7 +88,8 @@ const assertDeadlineWithin = (deadline: number | null | undefined, expectedDurat
 test("room creation initializes default lobby settings", () => {
   const store = new RoomStore();
   const created = store.createRoom("socket-1", {
-    playerName: "Host"
+    playerName: "Host",
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);
@@ -101,7 +104,8 @@ test("room creation initializes default lobby settings", () => {
 test("host can update lobby settings before the game starts", () => {
   const store = new RoomStore();
   const created = store.createRoom("socket-1", {
-    playerName: "Host"
+    playerName: "Host",
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);
@@ -124,7 +128,8 @@ test("host can update lobby settings before the game starts", () => {
 test("non-hosts cannot update lobby settings", () => {
   const store = new RoomStore();
   const created = store.createRoom("socket-1", {
-    playerName: "Host"
+    playerName: "Host",
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);
@@ -132,6 +137,7 @@ test("non-hosts cannot update lobby settings", () => {
 
   const joined = store.joinRoom("socket-2", {
     playerName: "Guest",
+    playerSessionId: "session-2",
     roomCode: created.room.roomCode
   });
   if (!joined.ok) {
@@ -153,7 +159,8 @@ test("non-hosts cannot update lobby settings", () => {
 test("invalid lobby settings values are rejected", () => {
   const store = new RoomStore();
   const created = store.createRoom("socket-1", {
-    playerName: "Host"
+    playerName: "Host",
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);
@@ -264,6 +271,120 @@ test("drawer disconnect during drawing ends the turn in intermission and reveals
   assert.equal(store.getDrawerStateForSocketId(socketIds[1]!), null);
 });
 
+test("disconnect marks a player disconnected instead of removing them immediately", () => {
+  const store = new RoomStore();
+  const created = store.createRoom("socket-1", {
+    playerName: "Host",
+    playerSessionId: "session-1"
+  });
+  if (!created.ok) {
+    assert.fail(created.error.message);
+  }
+
+  const joined = store.joinRoom("socket-2", {
+    playerName: "Guest",
+    playerSessionId: "session-2",
+    roomCode: created.room.roomCode
+  });
+  if (!joined.ok) {
+    assert.fail(joined.error.message);
+  }
+
+  const disconnected = store.markPlayerDisconnected("socket-2");
+  assert.ok(disconnected);
+  assert.equal(disconnected.room.players.length, 2);
+  assert.equal(disconnected.playerId, joined.playerId);
+  assert.equal(
+    disconnected.room.players.find((player) => player.id === joined.playerId)?.isConnected,
+    false
+  );
+});
+
+test("same reconnect token can reclaim a disconnected player during an active game", () => {
+  const { roomCode, socketIds, store } = createStartedRoom(["Host", "Guest"]);
+
+  const disconnected = store.markPlayerDisconnected(socketIds[1]!);
+  assert.ok(disconnected);
+
+  const rejoined = store.joinRoom("socket-reconnected", {
+    playerName: "Guest",
+    playerSessionId: "session-2",
+    roomCode
+  });
+  if (!rejoined.ok) {
+    assert.fail(rejoined.error.message);
+  }
+
+  assert.equal(rejoined.playerId, disconnected.playerId);
+  assert.equal(
+    rejoined.room.players.find((player) => player.id === disconnected.playerId)?.isConnected,
+    true
+  );
+});
+
+test("disconnect expiry removes a still-disconnected player", () => {
+  const store = new RoomStore();
+  const created = store.createRoom("socket-1", {
+    playerName: "Host",
+    playerSessionId: "session-1"
+  });
+  if (!created.ok) {
+    assert.fail(created.error.message);
+  }
+
+  const joined = store.joinRoom("socket-2", {
+    playerName: "Guest",
+    playerSessionId: "session-2",
+    roomCode: created.room.roomCode
+  });
+  if (!joined.ok) {
+    assert.fail(joined.error.message);
+  }
+
+  const disconnected = store.markPlayerDisconnected("socket-2");
+  assert.ok(disconnected);
+
+  const expired = store.expireDisconnectedPlayer(joined.playerId);
+  assert.ok(expired);
+  assert.equal(expired.room?.players.length, 1);
+  assert.equal(expired.room?.players.some((player) => player.id === joined.playerId), false);
+});
+
+test("duplicate names are still rejected for new players without the reconnect token", () => {
+  const store = new RoomStore();
+  const created = store.createRoom("socket-1", {
+    playerName: "Host",
+    playerSessionId: "session-1"
+  });
+  if (!created.ok) {
+    assert.fail(created.error.message);
+  }
+
+  const joined = store.joinRoom("socket-2", {
+    playerName: "Guest",
+    playerSessionId: "session-2",
+    roomCode: created.room.roomCode
+  });
+  if (!joined.ok) {
+    assert.fail(joined.error.message);
+  }
+
+  store.markPlayerDisconnected("socket-2");
+
+  const duplicateJoin = store.joinRoom("socket-3", {
+    playerName: "Guest",
+    playerSessionId: "session-3",
+    roomCode: created.room.roomCode
+  });
+
+  assert.equal(duplicateJoin.ok, false);
+  if (duplicateJoin.ok) {
+    assert.fail("duplicate join unexpectedly succeeded");
+  }
+
+  assert.equal(duplicateJoin.error.code, RoomErrorCode.DuplicateName);
+});
+
 test("guesser disconnect during drawing can end the turn when all remaining guessers are done", () => {
   const { roomCode, socketIds, store } = createStartedRoom(["Host", "Guest1", "Guest2"]);
 
@@ -354,7 +475,8 @@ test("lobby settings cannot be changed after the game starts", () => {
 test("host disconnect in lobby reassigns the host to the next player", () => {
   const store = new RoomStore();
   const created = store.createRoom("socket-1", {
-    playerName: "Host"
+    playerName: "Host",
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);
@@ -362,6 +484,7 @@ test("host disconnect in lobby reassigns the host to the next player", () => {
 
   const joined = store.joinRoom("socket-2", {
     playerName: "Guest",
+    playerSessionId: "session-2",
     roomCode: created.room.roomCode
   });
   if (!joined.ok) {
@@ -377,7 +500,8 @@ test("host disconnect in lobby reassigns the host to the next player", () => {
 test("removing the last player deletes the room", () => {
   const store = new RoomStore();
   const created = store.createRoom("socket-1", {
-    playerName: "Solo"
+    playerName: "Solo",
+    playerSessionId: "session-1"
   });
   if (!created.ok) {
     assert.fail(created.error.message);

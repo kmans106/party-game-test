@@ -31,8 +31,11 @@ export const LobbyView = ({
   room
 }: LobbyViewProps) => {
   const [copied, setCopied] = useState(false);
-  const canStartGame = room.players.length >= MIN_PLAYERS_TO_START;
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+  const connectedPlayerCount = room.players.filter((player) => player.isConnected).length;
+  const canStartGame = connectedPlayerCount >= MIN_PLAYERS_TO_START;
   const settingsDisabled = !isHost || isSubmitting;
+  const inviteLink = `${window.location.origin}/?room=${room.roomCode}`;
 
   return (
     <section
@@ -112,6 +115,30 @@ export const LobbyView = ({
           >
             {copied ? "Copied!" : "Copy"}
           </button>
+          <button
+            onClick={async () => {
+              await navigator.clipboard.writeText(inviteLink);
+              setCopiedInviteLink(true);
+              window.setTimeout(() => {
+                setCopiedInviteLink(false);
+              }, 1_500);
+            }}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--color-border-input)",
+              borderRadius: "4px",
+              color: "var(--color-text-secondary)",
+              display: "block",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              marginTop: "0.375rem",
+              padding: "0.1875rem 0.5rem",
+              width: "100%"
+            }}
+            type="button"
+          >
+            {copiedInviteLink ? "Invite copied!" : "Copy invite link"}
+          </button>
         </div>
       </div>
 
@@ -168,6 +195,11 @@ export const LobbyView = ({
                   {player.name}
                   {player.name === currentPlayerName ? " (You)" : ""}
                 </span>
+                {!player.isConnected ? (
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
+                    Reconnecting...
+                  </div>
+                ) : null}
               </div>
               {player.id === room.hostPlayerId ? (
                 <span
@@ -279,7 +311,7 @@ export const LobbyView = ({
             ? isHost
               ? "Ready to start when you are."
               : `Waiting for ${hostPlayerName} to start the game.`
-            : `Need ${MIN_PLAYERS_TO_START - room.players.length} more player${MIN_PLAYERS_TO_START - room.players.length === 1 ? "" : "s"} to begin.`}
+            : `Need ${MIN_PLAYERS_TO_START - connectedPlayerCount} more connected player${MIN_PLAYERS_TO_START - connectedPlayerCount === 1 ? "" : "s"} to begin.`}
         </div>
         <button
           disabled={!isHost || isSubmitting || !canStartGame}

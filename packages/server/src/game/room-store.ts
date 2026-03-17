@@ -44,6 +44,8 @@ type RoomRecord = {
   drawerState: DrawerStatePayload | null;
   socketIdsByPlayerId: Map<string, string>;
   playerIdsBySocketId: Map<string, string>;
+  playerSessionIdsByPlayerId: Map<string, string>;
+  playerIdsBySessionId: Map<string, string>;
 };
 
 type RoomMutationResult =
@@ -78,7 +80,12 @@ export class RoomStore {
     }
 
     const player = this.createPlayer(normalizedName);
-    const room = this.createRoomRecord(roomCode, socketId, player);
+    const room = this.createRoomRecord(
+      roomCode,
+      socketId,
+      player,
+      this.normalizePlayerSessionId(input.playerSessionId)
+    );
 
     return {
       ok: true,
@@ -102,7 +109,12 @@ export class RoomStore {
     const existingRoom = this.rooms.get(DEV_ROOM_CODE);
     if (!existingRoom) {
       const player = this.createPlayer(normalizedName);
-      const room = this.createRoomRecord(DEV_ROOM_CODE, socketId, player);
+      const room = this.createRoomRecord(
+        DEV_ROOM_CODE,
+        socketId,
+        player,
+        this.normalizePlayerSessionId(input.playerSessionId)
+      );
       return {
         ok: true,
         playerId: player.id,
@@ -112,7 +124,8 @@ export class RoomStore {
 
     return this.joinRoom(socketId, {
       roomCode: DEV_ROOM_CODE,
-      playerName: normalizedName
+      playerName: normalizedName,
+      playerSessionId: input.playerSessionId
     });
   }
 
@@ -150,6 +163,23 @@ export class RoomStore {
       };
     }
 
+    const playerSessionId = this.normalizePlayerSessionId(input.playerSessionId);
+    const existingPlayerId = roomRecord.playerIdsBySessionId.get(playerSessionId);
+    if (existingPlayerId) {
+      const existingPlayer = roomRecord.room.players.find((player) => player.id === existingPlayerId);
+      if (existingPlayer && !existingPlayer.isConnected) {
+        existingPlayer.isConnected = true;
+        roomRecord.socketIdsByPlayerId.set(existingPlayer.id, socketId);
+        roomRecord.playerIdsBySocketId.set(socketId, existingPlayer.id);
+
+        return {
+          ok: true,
+          playerId: existingPlayer.id,
+          room: roomRecord.room
+        };
+      }
+    }
+
     if (roomRecord.room.phase !== GamePhase.Lobby) {
       return {
         ok: false,
@@ -177,11 +207,68 @@ export class RoomStore {
     roomRecord.room.players.push(player);
     roomRecord.socketIdsByPlayerId.set(player.id, socketId);
     roomRecord.playerIdsBySocketId.set(socketId, player.id);
+    roomRecord.playerSessionIdsByPlayerId.set(player.id, playerSessionId);
+    roomRecord.playerIdsBySessionId.set(playerSessionId, player.id);
 
     return {
       ok: true,
       playerId: player.id,
       room: roomRecord.room
+    };
+  }
+
+  markPlayerDisconnected(socketId: string):
+    | {
+        room: RoomState;
+        roomCode: string;
+        playerId: string;
+      }
+    | null {
+    const roomRecord = this.getRoomRecordBySocketId(socketId);
+    if (!roomRecord) {
+      return null;
+    }
+
+    const playerId = roomRecord.playerIdsBySocketId.get(socketId);
+    if (!playerId) {
+      return null;
+    }
+
+    const player = roomRecord.room.players.find((candidate) => candidate.id === playerId);
+    if (!player) {
+      return null;
+    }
+
+    roomRecord.playerIdsBySocketId.delete(socketId);
+    roomRecord.socketIdsByPlayerId.delete(playerId);
+    player.isConnected = false;
+
+    return {
+      room: roomRecord.room,
+      roomCode: roomRecord.room.roomCode,
+      playerId
+    };
+  }
+
+  expireDisconnectedPlayer(playerId: string):
+    | {
+        room: RoomState | null;
+        roomCode: string;
+      }
+    | null {
+    const roomRecord = this.getRoomRecordByPlayerId(playerId);
+    if (!roomRecord) {
+      return null;
+    }
+
+    const player = roomRecord.room.players.find((candidate) => candidate.id === playerId);
+    if (!player || player.isConnected) {
+      return null;
+    }
+
+    return {
+      room: this.removePlayerFromRoom(roomRecord, playerId),
+      roomCode: roomRecord.room.roomCode
     };
   }
 
@@ -196,46 +283,7 @@ export class RoomStore {
       return null;
     }
 
-    const removedPlayer = roomRecord.room.players.find((player) => player.id === playerId);
-    if (!removedPlayer) {
-      return null;
-    }
-
-    const nextHostName =
-      roomRecord.room.hostPlayerId === playerId
-        ? roomRecord.room.players.find((player) => player.id !== playerId)?.name ?? null
-        : null;
-    roomRecord.playerIdsBySocketId.delete(socketId);
-    roomRecord.socketIdsByPlayerId.delete(playerId);
-    const removedPlayerIndex = roomRecord.room.players.findIndex((player) => player.id === playerId);
-    roomRecord.room.players = roomRecord.room.players.filter((player) => player.id !== playerId);
-
-    if (roomRecord.room.players.length === 0) {
-      this.rooms.delete(roomRecord.room.roomCode);
-      return null;
-    }
-
-    if (roomRecord.room.hostPlayerId === playerId) {
-      roomRecord.room.hostPlayerId = roomRecord.room.players[0]?.id ?? null;
-    }
-
-    if (roomRecord.room.phase === GamePhase.Playing) {
-      this.reconcileActiveGameAfterPlayerRemoval(roomRecord, removedPlayerIndex, removedPlayer);
-    } else {
-      roomRecord.drawerState = null;
-    }
-
-    if (
-      nextHostName &&
-      roomRecord.room.phase === GamePhase.Lobby &&
-      roomRecord.room.players.length >= 1
-    ) {
-      roomRecord.room.chatMessages = [
-        this.createSystemMessage(`${removedPlayer.name} left. ${nextHostName} is now the host.`)
-      ];
-    }
-
-    return roomRecord.room;
+    return this.removePlayerFromRoom(roomRecord, playerId);
   }
 
   startGame(socketId: string):
@@ -279,7 +327,8 @@ export class RoomStore {
       };
     }
 
-    if (roomRecord.room.players.length < MIN_PLAYERS_TO_START) {
+    const connectedPlayers = roomRecord.room.players.filter((player) => player.isConnected);
+    if (connectedPlayers.length < MIN_PLAYERS_TO_START) {
       return {
         ok: false,
         error: {
@@ -291,13 +340,13 @@ export class RoomStore {
 
     roomRecord.room.phase = GamePhase.Playing;
     roomRecord.room.activeGame = this.createInitialActiveGame(
-      roomRecord.room.players[0]!.id,
+      connectedPlayers[0]!.id,
       roomRecord.room.settings
     );
     roomRecord.drawerState = this.createDrawerState();
     roomRecord.room.chatMessages = [
       this.createSystemMessage(
-        `${roomRecord.room.players[0]!.name} is choosing a word for round 1.`
+        `${connectedPlayers[0]!.name} is choosing a word for round 1.`
       )
     ];
 
@@ -649,23 +698,18 @@ export class RoomStore {
       return null;
     }
 
-    const nextTurnIndex = roomRecord.room.activeGame.turnIndex + 1;
-    if (nextTurnIndex >= roomRecord.room.players.length) {
-      if (roomRecord.room.activeGame.roundNumber >= roomRecord.room.activeGame.totalRounds) {
-        roomRecord.room.phase = GamePhase.Finished;
-        roomRecord.room.activeGame = null;
-        roomRecord.drawerState = null;
-        roomRecord.room.chatMessages = [this.createSystemMessage("Game over.")];
-        return roomRecord.room;
-      }
-
-      roomRecord.room.activeGame.roundNumber += 1;
-      roomRecord.room.activeGame.turnIndex = 0;
-      roomRecord.room.activeGame.currentDrawerPlayerId = roomRecord.room.players[0]!.id;
-    } else {
-      roomRecord.room.activeGame.turnIndex = nextTurnIndex;
-      roomRecord.room.activeGame.currentDrawerPlayerId = roomRecord.room.players[nextTurnIndex]!.id;
+    const nextTurn = this.getNextConnectedTurn(roomRecord.room);
+    if (!nextTurn) {
+      roomRecord.room.phase = GamePhase.Finished;
+      roomRecord.room.activeGame = null;
+      roomRecord.drawerState = null;
+      roomRecord.room.chatMessages = [this.createSystemMessage("Game over.")];
+      return roomRecord.room;
     }
+
+    roomRecord.room.activeGame.roundNumber = nextTurn.roundNumber;
+    roomRecord.room.activeGame.turnIndex = nextTurn.turnIndex;
+    roomRecord.room.activeGame.currentDrawerPlayerId = nextTurn.playerId;
 
     roomRecord.room.activeGame.turnStage = TurnStage.ChoosingWord;
     roomRecord.room.activeGame.wordMask = null;
@@ -925,7 +969,12 @@ export class RoomStore {
     };
   }
 
-  private createRoomRecord(roomCode: string, socketId: string, player: Player) {
+  private createRoomRecord(
+    roomCode: string,
+    socketId: string,
+    player: Player,
+    playerSessionId: string
+  ) {
     const room: RoomState = {
       roomCode,
       phase: GamePhase.Lobby,
@@ -939,8 +988,10 @@ export class RoomStore {
     this.rooms.set(roomCode, {
       drawerState: null,
       room,
+      playerIdsBySessionId: new Map([[playerSessionId, player.id]]),
       socketIdsByPlayerId: new Map([[player.id, socketId]]),
-      playerIdsBySocketId: new Map([[socketId, player.id]])
+      playerIdsBySocketId: new Map([[socketId, player.id]]),
+      playerSessionIdsByPlayerId: new Map([[player.id, playerSessionId]])
     });
 
     return room;
@@ -967,6 +1018,16 @@ export class RoomStore {
     return undefined;
   }
 
+  private getRoomRecordByPlayerId(playerId: string): RoomRecord | undefined {
+    for (const roomRecord of this.rooms.values()) {
+      if (roomRecord.room.players.some((player) => player.id === playerId)) {
+        return roomRecord;
+      }
+    }
+
+    return undefined;
+  }
+
   private normalizePlayerName(playerName: string) {
     const trimmedName = playerName.trim();
     if (trimmedName.length === 0 || trimmedName.length > MAX_PLAYER_NAME_LENGTH) {
@@ -974,6 +1035,64 @@ export class RoomStore {
     }
 
     return trimmedName;
+  }
+
+  private normalizePlayerSessionId(playerSessionId: string) {
+    const normalizedPlayerSessionId = playerSessionId.trim().slice(0, 128);
+    return normalizedPlayerSessionId.length > 0 ? normalizedPlayerSessionId : randomUUID();
+  }
+
+  private removePlayerFromRoom(roomRecord: RoomRecord, playerId: string): RoomState | null {
+    const removedPlayer = roomRecord.room.players.find((player) => player.id === playerId);
+    if (!removedPlayer) {
+      return null;
+    }
+
+    const nextHostName =
+      roomRecord.room.hostPlayerId === playerId
+        ? roomRecord.room.players.find((player) => player.id !== playerId)?.name ?? null
+        : null;
+    const socketId = roomRecord.socketIdsByPlayerId.get(playerId);
+    const playerSessionId = roomRecord.playerSessionIdsByPlayerId.get(playerId);
+
+    if (socketId) {
+      roomRecord.playerIdsBySocketId.delete(socketId);
+    }
+    roomRecord.socketIdsByPlayerId.delete(playerId);
+    roomRecord.playerSessionIdsByPlayerId.delete(playerId);
+    if (playerSessionId) {
+      roomRecord.playerIdsBySessionId.delete(playerSessionId);
+    }
+
+    const removedPlayerIndex = roomRecord.room.players.findIndex((player) => player.id === playerId);
+    roomRecord.room.players = roomRecord.room.players.filter((player) => player.id !== playerId);
+
+    if (roomRecord.room.players.length === 0) {
+      this.rooms.delete(roomRecord.room.roomCode);
+      return null;
+    }
+
+    if (roomRecord.room.hostPlayerId === playerId) {
+      roomRecord.room.hostPlayerId = roomRecord.room.players[0]?.id ?? null;
+    }
+
+    if (roomRecord.room.phase === GamePhase.Playing) {
+      this.reconcileActiveGameAfterPlayerRemoval(roomRecord, removedPlayerIndex, removedPlayer);
+    } else {
+      roomRecord.drawerState = null;
+    }
+
+    if (
+      nextHostName &&
+      roomRecord.room.phase === GamePhase.Lobby &&
+      roomRecord.room.players.length >= 1
+    ) {
+      roomRecord.room.chatMessages = [
+        this.createSystemMessage(`${removedPlayer.name} left. ${nextHostName} is now the host.`)
+      ];
+    }
+
+    return roomRecord.room;
   }
 
   private reconcileActiveGameAfterPlayerRemoval(
@@ -1194,9 +1313,37 @@ export class RoomStore {
     }
 
     const eligibleGuessers = room.players.filter(
-      (player) => player.id !== room.activeGame?.currentDrawerPlayerId
+      (player) => player.isConnected && player.id !== room.activeGame?.currentDrawerPlayerId
     );
     return eligibleGuessers.every((player) => room.activeGame?.guessedPlayerIds.includes(player.id));
+  }
+
+  private getNextConnectedTurn(room: RoomState) {
+    const activeGame = room.activeGame;
+    if (!activeGame || room.players.length === 0) {
+      return null;
+    }
+
+    const playerCount = room.players.length;
+    const currentAbsoluteTurnIndex = (activeGame.roundNumber - 1) * playerCount + activeGame.turnIndex;
+    const totalTurnCount = activeGame.totalRounds * playerCount;
+
+    for (let offset = 1; offset < totalTurnCount - currentAbsoluteTurnIndex; offset += 1) {
+      const nextAbsoluteTurnIndex = currentAbsoluteTurnIndex + offset;
+      const nextTurnIndex = nextAbsoluteTurnIndex % playerCount;
+      const nextPlayer = room.players[nextTurnIndex];
+      if (!nextPlayer?.isConnected) {
+        continue;
+      }
+
+      return {
+        playerId: nextPlayer.id,
+        roundNumber: Math.floor(nextAbsoluteTurnIndex / playerCount) + 1,
+        turnIndex: nextTurnIndex
+      };
+    }
+
+    return null;
   }
 
   private normalizeGuess(guess: string) {

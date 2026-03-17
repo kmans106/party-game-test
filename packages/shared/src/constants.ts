@@ -6,6 +6,7 @@ export const ROUND_TIMER_OPTIONS = [45, 60, 75, 90] as const;
 export const DEFAULT_TOTAL_ROUNDS = 3;
 export const DEFAULT_ROUND_TIMER_SECONDS = 60;
 export const DEV_ROOM_CODE = "DEV1";
+export const RECONNECT_GRACE_PERIOD_MS = 45_000;
 export const CHOOSE_WORD_DURATION_MS = 15_000;
 export const DRAWING_DURATION_MS = DEFAULT_ROUND_TIMER_SECONDS * 1_000;
 export const DRAWING_HINT_REVEAL_RATIO = 2 / 3;

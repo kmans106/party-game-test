@@ -2,6 +2,7 @@ import type { Server } from "socket.io";
 
 import {
   CLIENT_EVENTS,
+  RECONNECT_GRACE_PERIOD_MS,
   SERVER_EVENTS,
   type CanvasStroke,
   type ChooseWordInput,
@@ -18,6 +19,7 @@ import { RoomStore } from "./game/room-store.js";
 
 const roomStore = new RoomStore();
 const roomPhaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const emitRoomState = (io: Server, roomCode: string) => {
   const socketIds = roomStore.getSocketIdsForRoom(roomCode);
@@ -62,6 +64,14 @@ const clearRoomPhaseTimer = (roomCode: string) => {
   if (existingTimer) {
     clearTimeout(existingTimer);
     roomPhaseTimers.delete(roomCode);
+  }
+};
+
+const clearReconnectTimer = (playerId: string) => {
+  const existingTimer = reconnectTimers.get(playerId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    reconnectTimers.delete(playerId);
   }
 };
 
@@ -145,6 +155,7 @@ export const registerSocketHandlers = (io: Server) => {
         return;
       }
 
+      clearReconnectTimer(result.playerId);
       socket.emit(SERVER_EVENTS.roomJoined, {
         playerId: result.playerId,
         room: result.room
@@ -158,6 +169,7 @@ export const registerSocketHandlers = (io: Server) => {
         return;
       }
 
+      clearReconnectTimer(result.playerId);
       socket.emit(SERVER_EVENTS.roomJoined, {
         playerId: result.playerId,
         room: result.room
@@ -174,6 +186,7 @@ export const registerSocketHandlers = (io: Server) => {
         return;
       }
 
+      clearReconnectTimer(result.playerId);
       socket.emit(SERVER_EVENTS.roomJoined, {
         playerId: result.playerId,
         room: result.room
@@ -281,16 +294,36 @@ export const registerSocketHandlers = (io: Server) => {
     });
 
     socket.on("disconnect", () => {
-      const room = roomStore.removePlayerBySocketId(socket.id);
-      if (!room) {
+      const result = roomStore.markPlayerDisconnected(socket.id);
+      if (!result) {
         return;
       }
 
-      clearRoomPhaseTimer(room.roomCode);
+      clearReconnectTimer(result.playerId);
+      reconnectTimers.set(
+        result.playerId,
+        setTimeout(() => {
+          reconnectTimers.delete(result.playerId);
 
-      emitRoomState(io, room.roomCode);
-      emitDrawerState(io, room.roomCode);
-      syncRoomPhaseTimer(io, room.roomCode);
+          const expiredResult = roomStore.expireDisconnectedPlayer(result.playerId);
+          if (!expiredResult) {
+            return;
+          }
+
+          clearRoomPhaseTimer(expiredResult.roomCode);
+          if (!expiredResult.room) {
+            return;
+          }
+
+          emitRoomState(io, expiredResult.roomCode);
+          emitDrawerState(io, expiredResult.roomCode);
+          syncRoomPhaseTimer(io, expiredResult.roomCode);
+        }, RECONNECT_GRACE_PERIOD_MS)
+      );
+
+      emitRoomState(io, result.roomCode);
+      emitDrawerState(io, result.roomCode);
+      syncRoomPhaseTimer(io, result.roomCode);
     });
   });
 };
