@@ -38,6 +38,7 @@ export const JoinRoomView = ({
   if (devMode) {
     return (
       <section
+        className="join-room join-room--dev"
         style={{
           background: "var(--color-bg-card)",
           border: "1px solid var(--color-border)",
@@ -86,6 +87,7 @@ export const JoinRoomView = ({
 
   return (
     <section
+      className="join-room"
       style={{
         background: "var(--color-bg-card)",
         border: "1px solid var(--color-border)",
@@ -139,14 +141,15 @@ export const JoinRoomView = ({
       </label>
 
       <div
+        className="join-room__actions"
         style={{
           display: "grid",
           gap: "0.75rem",
-          gridTemplateColumns: "1fr 1fr",
           marginTop: "1.25rem"
         }}
       >
         <form
+          className="join-room__card"
           onSubmit={(event) => {
             event.preventDefault();
             if (!canCreateRoom) {
@@ -194,6 +197,7 @@ export const JoinRoomView = ({
         </form>
 
         <form
+          className="join-room__card"
           onSubmit={(event) => {
             event.preventDefault();
             if (!canJoinRoom) {

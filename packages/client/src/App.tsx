@@ -96,13 +96,13 @@ export const App = () => {
   const themeToggle = (
     <button
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className="theme-toggle"
       onClick={toggleTheme}
       style={{
         alignItems: "center",
         background: "var(--color-bg-card)",
         border: "1px solid var(--color-border)",
         borderRadius: "50%",
-        bottom: "1rem",
         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
         color: "var(--color-text-primary)",
         cursor: "pointer",
@@ -111,8 +111,6 @@ export const App = () => {
         height: "2.25rem",
         justifyContent: "center",
         lineHeight: 1,
-        position: "fixed",
-        right: "1rem",
         width: "2.25rem",
         zIndex: 1000
       }}
@@ -160,14 +158,7 @@ export const App = () => {
   return (
     <>
       {themeToggle}
-      <main
-        style={{
-          display: "grid",
-          minHeight: "100vh",
-          padding: "1.5rem",
-          placeItems: "center"
-        }}
-      >
+      <main className="app-shell">
         {!room ? (
           <JoinRoomView
             devMode={devMode}

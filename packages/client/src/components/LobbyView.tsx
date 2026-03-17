@@ -1,5 +1,7 @@
 import { useState } from "react";
 import {
+  DEFAULT_ROUND_TIMER_SECONDS,
+  DEFAULT_TOTAL_ROUNDS,
   MIN_PLAYERS_TO_START,
   ROUND_TIMER_OPTIONS,
   TOTAL_ROUNDS_OPTIONS,
@@ -36,9 +38,14 @@ export const LobbyView = ({
   const canStartGame = connectedPlayerCount >= MIN_PLAYERS_TO_START;
   const settingsDisabled = !isHost || isSubmitting;
   const inviteLink = `${window.location.origin}/?room=${room.roomCode}`;
+  const roomSettings = room.settings ?? {
+    totalRounds: DEFAULT_TOTAL_ROUNDS,
+    roundTimerSeconds: DEFAULT_ROUND_TIMER_SECONDS
+  };
 
   return (
     <section
+      className="lobby-view"
       style={{
         background: "var(--color-bg-card)",
         border: "1px solid var(--color-border)",
@@ -49,6 +56,7 @@ export const LobbyView = ({
       }}
     >
       <div
+        className="lobby-view__header"
         style={{
           alignItems: "flex-start",
           display: "flex",
@@ -63,6 +71,7 @@ export const LobbyView = ({
           </p>
         </div>
         <div
+          className="lobby-view__room-card"
           style={{
             background: "var(--color-bg-sage)",
             border: "1px solid var(--color-border-sage)",
@@ -256,7 +265,7 @@ export const LobbyView = ({
               onChange={(event) => {
                 onUpdateSettings({
                   totalRounds: Number(event.target.value),
-                  roundTimerSeconds: room.settings.roundTimerSeconds
+                  roundTimerSeconds: roomSettings.roundTimerSeconds
                 });
               }}
               style={{
@@ -267,7 +276,7 @@ export const LobbyView = ({
                 fontSize: "0.9375rem",
                 padding: "0.625rem 0.75rem"
               }}
-              value={room.settings.totalRounds}
+              value={roomSettings.totalRounds}
             >
               {TOTAL_ROUNDS_OPTIONS.map((rounds) => (
                 <option key={rounds} value={rounds}>
@@ -284,7 +293,7 @@ export const LobbyView = ({
               disabled={settingsDisabled}
               onChange={(event) => {
                 onUpdateSettings({
-                  totalRounds: room.settings.totalRounds,
+                  totalRounds: roomSettings.totalRounds,
                   roundTimerSeconds: Number(event.target.value)
                 });
               }}
@@ -296,7 +305,7 @@ export const LobbyView = ({
                 fontSize: "0.9375rem",
                 padding: "0.625rem 0.75rem"
               }}
-              value={room.settings.roundTimerSeconds}
+              value={roomSettings.roundTimerSeconds}
             >
               {ROUND_TIMER_OPTIONS.map((seconds) => (
                 <option key={seconds} value={seconds}>

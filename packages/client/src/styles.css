@@ -161,3 +161,426 @@ button:focus-visible {
 input::placeholder {
   color: var(--color-text-muted);
 }
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.5rem;
+  place-items: center;
+}
+
+.theme-toggle {
+  bottom: 1rem;
+  position: fixed;
+  right: 1rem;
+}
+
+.join-room,
+.lobby-view {
+  width: min(100%, 560px);
+}
+
+.join-room--dev {
+  max-width: 480px;
+}
+
+.join-room__actions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.join-room__card {
+  min-width: 0;
+}
+
+.lobby-view__header {
+  flex-wrap: nowrap;
+}
+
+.lobby-view__room-card {
+  min-width: 11rem;
+}
+
+.game-room {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.game-room__shell {
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100vh - 1rem);
+  height: calc(100dvh - 1rem);
+  min-height: 0;
+}
+
+.game-room__shell--with-banner {
+  height: calc(100vh - 4rem);
+  height: calc(100dvh - 4rem);
+}
+
+.game-room__shell--finished {
+  min-height: calc(100vh - 1.5rem);
+  min-height: calc(100dvh - 1.5rem);
+}
+
+.game-room__header {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.game-room__header-panel {
+  min-width: 0;
+}
+
+.game-room__header-panel--right {
+  justify-self: end;
+}
+
+.game-room__body {
+  grid-template-columns: 14rem minmax(0, 1fr) 16rem;
+  grid-template-areas: "scoreboard center chat";
+}
+
+.game-room__scoreboard {
+  grid-area: scoreboard;
+  min-width: 0;
+}
+
+.game-room__center {
+  grid-area: center;
+  min-width: 0;
+}
+
+.game-room__chat {
+  grid-area: chat;
+  min-width: 0;
+}
+
+.game-room__stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.game-room__finished-body {
+  grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr);
+}
+
+.game-room__tool-group {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1179px) {
+  .app-shell {
+    padding: 1rem;
+  }
+
+  .game-room__body {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+    grid-template-areas:
+      "center center"
+      "scoreboard chat";
+  }
+
+  .game-room__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left right"
+      "center center";
+    align-items: start;
+  }
+
+  .game-room__header-panel--left {
+    grid-area: left;
+  }
+
+  .game-room__header-panel--center {
+    grid-area: center;
+  }
+
+  .game-room__header-panel--right {
+    grid-area: right;
+  }
+
+  .game-room__header-panel--center,
+  .game-room__header-panel--right {
+    text-align: left !important;
+  }
+
+  .game-room__center {
+    min-height: 26rem;
+  }
+
+  .game-room__finished-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 899px) {
+  .theme-toggle {
+    bottom: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .join-room__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-view__header {
+    flex-wrap: wrap;
+  }
+
+  .lobby-view__room-card {
+    width: 100%;
+  }
+
+  .join-room,
+  .lobby-view {
+    width: min(100%, 42rem);
+  }
+
+  .game-room {
+    overflow: auto;
+  }
+
+  .game-room__shell {
+    height: auto;
+    min-height: calc(100vh - 1rem);
+    min-height: calc(100dvh - 1rem);
+  }
+
+  .game-room__shell--with-banner {
+    height: auto;
+    min-height: calc(100vh - 4rem);
+    min-height: calc(100dvh - 4rem);
+  }
+
+  .game-room__header {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "left"
+      "center"
+      "right";
+  }
+
+  .game-room__body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "center"
+      "chat"
+      "scoreboard";
+    overflow: visible;
+  }
+
+  .game-room__center {
+    min-height: 0;
+  }
+
+  .game-room__canvas-card {
+    min-height: 0;
+  }
+
+  .game-room__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .game-room__toolbar {
+    align-items: center;
+    gap: 0.625rem !important;
+  }
+
+  .game-room__toolbar > div,
+  .game-room__toolbar > button {
+    min-height: 2rem;
+  }
+
+  .game-room__tool-button {
+    aspect-ratio: 1 / 1;
+    flex: 0 0 auto;
+    min-height: 0 !important;
+  }
+
+  .game-room__chat {
+    min-height: 22rem;
+  }
+
+  .game-room__chat-form {
+    position: sticky;
+    bottom: 0;
+    background: var(--color-bg-card);
+  }
+
+  .game-room__finished-summary,
+  .game-room__finished-standings {
+    padding: 1rem !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button:not(.game-room__tool-button) {
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 0.75rem;
+    place-items: stretch;
+  }
+
+  .theme-toggle {
+    bottom: 0.625rem;
+    right: 0.625rem;
+  }
+
+  .join-room,
+  .join-room--dev,
+  .lobby-view {
+    max-width: none !important;
+  }
+
+  .join-room,
+  .lobby-view {
+    border-radius: 10px;
+    padding: 1.25rem !important;
+  }
+
+  .join-room h1 {
+    font-size: 1.375rem !important;
+  }
+
+  .join-room__card {
+    padding: 0.875rem !important;
+  }
+
+  .lobby-view__header {
+    gap: 0.75rem !important;
+  }
+
+  .game-room {
+    padding: 0.375rem !important;
+  }
+
+  .game-room__shell {
+    gap: 0.375rem !important;
+    min-height: calc(100vh - 0.75rem);
+    min-height: calc(100dvh - 0.75rem);
+  }
+
+  .game-room__shell--with-banner {
+    min-height: calc(100vh - 3.75rem);
+    min-height: calc(100dvh - 3.75rem);
+  }
+
+  .game-room__header {
+    gap: 0.375rem !important;
+    padding: 0.5rem 0.625rem !important;
+  }
+
+  .game-room__header-panel--left,
+  .game-room__header-panel--center,
+  .game-room__header-panel--right {
+    justify-self: start;
+    text-align: left !important;
+  }
+
+  .game-room__invite-button {
+    width: 100%;
+  }
+
+  .game-room__word-display {
+    font-size: 1.0625rem !important;
+    letter-spacing: 0.04em !important;
+    word-break: break-word;
+  }
+
+  .game-room__timer-value {
+    font-size: 0.875rem !important;
+  }
+
+  .game-room__body {
+    gap: 0.375rem !important;
+  }
+
+  .game-room__canvas-card,
+  .game-room__chat,
+  .game-room__scoreboard {
+    border-radius: 6px !important;
+  }
+
+  .game-room__canvas-card {
+    padding: 0.5rem !important;
+  }
+
+  .game-room__stats {
+    gap: 0.25rem !important;
+  }
+
+  .game-room__toolbar {
+    gap: 0.5rem !important;
+    justify-content: flex-start;
+  }
+
+  .game-room__tool-group {
+    gap: 0.375rem !important;
+  }
+
+  .game-room__clear-button {
+    width: auto;
+  }
+
+  .game-room__chat {
+    min-height: 18rem;
+  }
+
+  .game-room__chat-form {
+    gap: 0.5rem !important;
+    padding: 0.5rem 0.625rem !important;
+  }
+
+  .game-room__player-badge {
+    margin-top: -0.5rem !important;
+    max-width: fit-content;
+    padding: 0.25rem 0.625rem !important;
+  }
+
+  .game-room__finished-summary,
+  .game-room__finished-standings {
+    padding: 0.875rem !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .join-room,
+  .lobby-view {
+    padding: 1rem !important;
+  }
+
+  .join-room h1 {
+    font-size: 1.25rem !important;
+  }
+
+  .lobby-view__room-card {
+    padding: 0.625rem 0.75rem !important;
+  }
+
+  .game-room__header {
+    padding: 0.5rem !important;
+  }
+
+  .game-room__word-display {
+    font-size: 0.9375rem !important;
+  }
+
+  .game-room__tool-button {
+    height: 1.75rem !important;
+    width: 1.75rem !important;
+  }
+
+  .game-room__clear-button {
+    padding: 0.25rem 0.625rem !important;
+  }
+
+  .game-room__chat {
+    min-height: 16rem;
+  }
+}

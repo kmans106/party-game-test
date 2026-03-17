@@ -130,22 +130,23 @@ export const GameRoomView = ({
   if (room.phase === GamePhase.Finished) {
     return (
       <main
+        className="game-room game-room--finished"
         style={{
           background: "var(--color-bg-page)",
           boxSizing: "border-box",
-          minHeight: "100vh",
           padding: "0.75rem"
         }}
       >
         <section
+          className="game-room__shell game-room__shell--finished"
           style={{
             display: "grid",
             gap: "0.75rem",
-            gridTemplateRows: "auto 1fr",
-            minHeight: "calc(100vh - 1.5rem)"
+            gridTemplateRows: "auto 1fr"
           }}
         >
           <header
+            className="game-room__header game-room__header--finished"
             style={{
               alignItems: "center",
               background: "var(--color-bg-card)",
@@ -212,14 +213,15 @@ export const GameRoomView = ({
           </header>
 
           <section
+            className="game-room__finished-body"
             style={{
               display: "grid",
               gap: "0.75rem",
-              gridTemplateColumns: "minmax(0, 1.3fr) minmax(18rem, 0.7fr)",
               minHeight: 0
             }}
           >
             <section
+              className="game-room__finished-standings"
               style={{
                 background: "var(--color-bg-card)",
                 border: "1px solid var(--color-border)",
@@ -286,6 +288,7 @@ export const GameRoomView = ({
             </section>
 
             <aside
+              className="game-room__finished-summary"
               style={{
                 alignContent: "start",
                 background: "var(--color-bg-card)",
@@ -378,11 +381,10 @@ export const GameRoomView = ({
   // ── Playing ──
   return (
     <main
+      className="game-room"
       style={{
         background: "var(--color-bg-page)",
         boxSizing: "border-box",
-        height: "100vh",
-        overflow: "hidden",
         padding: "0.5rem"
       }}
     >
@@ -403,16 +405,16 @@ export const GameRoomView = ({
         </div>
       ) : null}
       <section
+        className={`game-room__shell${isConnected ? "" : " game-room__shell--with-banner"}`}
         style={{
           display: "grid",
           gap: "0.5rem",
-          gridTemplateRows: "auto 1fr",
-          height: isConnected ? "calc(100vh - 1rem)" : "calc(100vh - 3.5rem)",
-          minHeight: 0
+          gridTemplateRows: "auto 1fr"
         }}
       >
         {/* ── Header ── */}
         <header
+          className="game-room__header"
           style={{
             alignItems: "center",
             background: "var(--color-bg-card)",
@@ -421,11 +423,10 @@ export const GameRoomView = ({
             borderTop: "3px solid var(--color-accent-terracotta)",
             display: "grid",
             gap: "0.5rem",
-            gridTemplateColumns: "1fr auto 1fr",
             padding: "0.5rem 0.75rem"
           }}
         >
-          <div>
+          <div className="game-room__header-panel game-room__header-panel--left">
             <div
               style={{
                 color: "var(--color-text-muted)",
@@ -441,6 +442,7 @@ export const GameRoomView = ({
               Round {room.activeGame?.roundNumber ?? "-"} / {room.activeGame?.totalRounds ?? "-"}
             </div>
             <button
+              className="game-room__invite-button"
               onClick={async () => {
                 await navigator.clipboard.writeText(inviteLink);
                 setCopiedInviteLink(true);
@@ -463,7 +465,7 @@ export const GameRoomView = ({
               {copiedInviteLink ? "Invite copied!" : "Copy invite link"}
             </button>
           </div>
-          <div style={{ textAlign: "center" }}>
+          <div className="game-room__header-panel game-room__header-panel--center" style={{ textAlign: "center" }}>
             <div
               style={{
                 color: "var(--color-accent-terracotta)",
@@ -476,6 +478,7 @@ export const GameRoomView = ({
               Word
             </div>
             <div
+              className="game-room__word-display"
               style={{
                 color: "var(--color-text-primary)",
                 fontSize: "1.25rem",
@@ -487,7 +490,7 @@ export const GameRoomView = ({
               {publicWordDisplay}
             </div>
           </div>
-          <div style={{ textAlign: "right" }}>
+          <div className="game-room__header-panel game-room__header-panel--right" style={{ textAlign: "right" }}>
             <div
               style={{
                 alignItems: "center",
@@ -529,7 +532,7 @@ export const GameRoomView = ({
                   ? "Time left"
                   : "Next turn"}
             </div>
-            <div style={{ fontSize: "0.9375rem", fontWeight: 700, lineHeight: 1.2 }}>
+            <div className="game-room__timer-value" style={{ fontSize: "0.9375rem", fontWeight: 700, lineHeight: 1.2 }}>
               {remainingSeconds ?? "-"}s
             </div>
           </div>
@@ -537,16 +540,16 @@ export const GameRoomView = ({
 
         {/* ── Three-column body ── */}
         <section
+          className="game-room__body"
           style={{
             display: "grid",
             gap: "0.5rem",
-            gridTemplateColumns: "14rem minmax(0, 1fr) 16rem",
-            minHeight: 0,
-            overflow: "hidden"
+            minHeight: 0
           }}
         >
           {/* ── Scoreboard ── */}
           <aside
+            className="game-room__scoreboard"
             style={{
               background: "var(--color-bg-card)",
               border: "1px solid var(--color-border)",
@@ -631,6 +634,7 @@ export const GameRoomView = ({
 
           {/* ── Center: Canvas area ── */}
           <section
+            className="game-room__center"
             style={{
               display: "grid",
               gridTemplateRows: "minmax(0, 1fr) auto",
@@ -638,6 +642,7 @@ export const GameRoomView = ({
             }}
           >
             <div
+              className="game-room__canvas-card"
               style={{
                 background: "var(--color-bg-card)",
                 border: "1px solid var(--color-border)",
@@ -651,10 +656,10 @@ export const GameRoomView = ({
             >
               {/* Stat row */}
               <div
+                className="game-room__stats"
                 style={{
                   display: "grid",
                   gap: "0.375rem",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                   marginBottom: "0.5rem"
                 }}
               >
@@ -839,6 +844,7 @@ export const GameRoomView = ({
                     {/* Toolbar */}
                     {isCurrentDrawer ? (
                       <div
+                        className="game-room__toolbar"
                         style={{
                           alignItems: "center",
                           display: "flex",
@@ -847,10 +853,11 @@ export const GameRoomView = ({
                           marginBottom: "0.375rem"
                         }}
                       >
-                        <div style={{ display: "flex", gap: "0.25rem" }}>
+                        <div className="game-room__tool-group" style={{ display: "flex", gap: "0.25rem" }}>
                           {DRAW_COLORS.map((color) => (
                             <button
                               aria-label={`Use ${color} ink`}
+                              className="game-room__tool-button"
                               key={color}
                               onClick={() => {
                                 setSelectedColor(color);
@@ -877,10 +884,11 @@ export const GameRoomView = ({
                             width: "1px"
                           }}
                         />
-                        <div style={{ display: "flex", gap: "0.25rem" }}>
+                        <div className="game-room__tool-group" style={{ display: "flex", gap: "0.25rem" }}>
                           {BRUSH_SIZES.map((brushSize) => (
                             <button
                               aria-label={`Brush size ${brushSize}`}
+                              className="game-room__tool-button"
                               key={brushSize}
                               onClick={() => {
                                 setSelectedBrushSize(brushSize);
@@ -923,6 +931,7 @@ export const GameRoomView = ({
                           }}
                         />
                         <button
+                          className="game-room__clear-button"
                           disabled={!isConnected}
                           onClick={onClearCanvas}
                           style={{
@@ -960,6 +969,7 @@ export const GameRoomView = ({
 
             {/* Player badge */}
             <div
+              className="game-room__player-badge"
               style={{
                 background: "var(--color-bg-card)",
                 border: "1px solid var(--color-border)",
@@ -978,6 +988,7 @@ export const GameRoomView = ({
 
           {/* ── Chat / Guesses ── */}
           <aside
+            className="game-room__chat"
             style={{
               background: "var(--color-bg-card)",
               border: "1px solid var(--color-border)",
@@ -1064,6 +1075,7 @@ export const GameRoomView = ({
               ))}
             </div>
             <form
+              className="game-room__chat-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (guessInputDisabled || guessText.trim().length === 0) {
