@@ -176,7 +176,10 @@ input::placeholder {
 }
 
 .theme-toggle {
+  aspect-ratio: 1 / 1;
   bottom: 1rem;
+  flex: 0 0 auto;
+  min-height: 0;
   position: fixed;
   right: 1rem;
 }
@@ -421,7 +424,7 @@ input::placeholder {
   input,
   select,
   textarea,
-  button:not(.game-room__tool-button) {
+  button:not(.game-room__tool-button):not(.theme-toggle) {
     min-height: 2.75rem;
   }
 }
