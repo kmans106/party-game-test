@@ -24,6 +24,7 @@ import {
   type JoinRoomInput,
   type LobbySettings,
   type Player,
+  type GameSummary,
   type RoomErrorPayload,
   type RoomState,
   type SubmitGuessInput,
@@ -46,6 +47,13 @@ type RoomRecord = {
   playerIdsBySocketId: Map<string, string>;
   playerSessionIdsByPlayerId: Map<string, string>;
   playerIdsBySessionId: Map<string, string>;
+  gameStatsByPlayerId: Map<string, PlayerGameStats>;
+};
+
+type PlayerGameStats = {
+  correctGuesses: number;
+  fastestGuessMs: number | null;
+  drawerPoints: number;
 };
 
 type RoomMutationResult =
@@ -209,6 +217,7 @@ export class RoomStore {
     roomRecord.playerIdsBySocketId.set(socketId, player.id);
     roomRecord.playerSessionIdsByPlayerId.set(player.id, playerSessionId);
     roomRecord.playerIdsBySessionId.set(playerSessionId, player.id);
+    roomRecord.gameStatsByPlayerId.set(player.id, this.createEmptyPlayerGameStats());
 
     return {
       ok: true,
@@ -339,6 +348,8 @@ export class RoomStore {
     }
 
     roomRecord.room.phase = GamePhase.Playing;
+    roomRecord.room.gameSummary = null;
+    this.resetGameStats(roomRecord);
     roomRecord.room.activeGame = this.createInitialActiveGame(
       connectedPlayers[0]!.id,
       roomRecord.room.settings
@@ -399,12 +410,14 @@ export class RoomStore {
 
     roomRecord.room.phase = GamePhase.Lobby;
     roomRecord.room.activeGame = null;
+    roomRecord.room.gameSummary = null;
     roomRecord.room.chatMessages = [];
     roomRecord.drawerState = null;
     roomRecord.room.players = roomRecord.room.players.map((player) => ({
       ...player,
       score: 0
     }));
+    this.resetGameStats(roomRecord);
 
     return {
       ok: true,
@@ -669,10 +682,20 @@ export class RoomStore {
     const guessOrder = activeGame.guessedPlayerIds.length;
     const guesserPoints = GUESSES_SCORE_BY_ORDER[guessOrder] ?? 40;
     guessingPlayer.score += guesserPoints;
+    const guessingPlayerStats = this.getPlayerGameStats(roomRecord, playerId);
+    const roundDurationMs = getRoundTimerDurationMs(room.settings.roundTimerSeconds);
+    const remainingMs =
+      activeGame.phaseEndsAt === null ? roundDurationMs : Math.max(0, activeGame.phaseEndsAt - Date.now());
+    const guessElapsedMs = Math.max(0, roundDurationMs - remainingMs);
+    guessingPlayerStats.correctGuesses += 1;
+    if (guessingPlayerStats.fastestGuessMs === null || guessElapsedMs < guessingPlayerStats.fastestGuessMs) {
+      guessingPlayerStats.fastestGuessMs = guessElapsedMs;
+    }
 
     const drawerPlayer = room.players.find((player) => player.id === activeGame.currentDrawerPlayerId);
     if (drawerPlayer) {
       drawerPlayer.score += DRAWER_CORRECT_GUESS_BONUS;
+      this.getPlayerGameStats(roomRecord, drawerPlayer.id).drawerPoints += DRAWER_CORRECT_GUESS_BONUS;
     }
 
     activeGame.guessedPlayerIds.push(playerId);
@@ -700,10 +723,7 @@ export class RoomStore {
 
     const nextTurn = this.getNextConnectedTurn(roomRecord.room);
     if (!nextTurn) {
-      roomRecord.room.phase = GamePhase.Finished;
-      roomRecord.room.activeGame = null;
-      roomRecord.drawerState = null;
-      roomRecord.room.chatMessages = [this.createSystemMessage("Game over.")];
+      this.finishGame(roomRecord);
       return roomRecord.room;
     }
 
@@ -982,11 +1002,13 @@ export class RoomStore {
       hostPlayerId: player.id,
       settings: this.createDefaultLobbySettings(),
       activeGame: null,
+      gameSummary: null,
       chatMessages: []
     };
 
     this.rooms.set(roomCode, {
       drawerState: null,
+      gameStatsByPlayerId: new Map([[player.id, this.createEmptyPlayerGameStats()]]),
       room,
       playerIdsBySessionId: new Map([[playerSessionId, player.id]]),
       socketIdsByPlayerId: new Map([[player.id, socketId]]),
@@ -1060,6 +1082,7 @@ export class RoomStore {
     }
     roomRecord.socketIdsByPlayerId.delete(playerId);
     roomRecord.playerSessionIdsByPlayerId.delete(playerId);
+    roomRecord.gameStatsByPlayerId.delete(playerId);
     if (playerSessionId) {
       roomRecord.playerIdsBySessionId.delete(playerSessionId);
     }
@@ -1104,12 +1127,14 @@ export class RoomStore {
     if (room.players.length < MIN_PLAYERS_TO_START) {
       room.phase = GamePhase.Lobby;
       room.activeGame = null;
+      room.gameSummary = null;
       room.chatMessages = [
         this.createSystemMessage(
           `${removedPlayer.name} left the room. Not enough players remain, so the game returned to the lobby.`
         )
       ];
       roomRecord.drawerState = null;
+      this.resetGameStats(roomRecord);
       return;
     }
 
@@ -1169,10 +1194,7 @@ export class RoomStore {
     const nextTurnIndex = Math.max(0, removedPlayerIndex);
     if (nextTurnIndex >= room.players.length) {
       if (room.activeGame.roundNumber >= room.activeGame.totalRounds) {
-        room.phase = GamePhase.Finished;
-        room.activeGame = null;
-        roomRecord.drawerState = null;
-        room.chatMessages = [this.createSystemMessage("Game over.")];
+        this.finishGame(roomRecord);
         return;
       }
 
@@ -1229,6 +1251,91 @@ export class RoomStore {
     return {
       selectedWord: null,
       wordChoices: getRandomWordChoices(WORD_CHOICE_COUNT)
+    };
+  }
+
+  private createEmptyPlayerGameStats(): PlayerGameStats {
+    return {
+      correctGuesses: 0,
+      fastestGuessMs: null,
+      drawerPoints: 0
+    };
+  }
+
+  private resetGameStats(roomRecord: RoomRecord) {
+    roomRecord.gameStatsByPlayerId = new Map(
+      roomRecord.room.players.map((player) => [player.id, this.createEmptyPlayerGameStats()])
+    );
+  }
+
+  private getPlayerGameStats(roomRecord: RoomRecord, playerId: string): PlayerGameStats {
+    let stats = roomRecord.gameStatsByPlayerId.get(playerId);
+    if (!stats) {
+      stats = this.createEmptyPlayerGameStats();
+      roomRecord.gameStatsByPlayerId.set(playerId, stats);
+    }
+
+    return stats;
+  }
+
+  private finishGame(roomRecord: RoomRecord) {
+    roomRecord.room.phase = GamePhase.Finished;
+    roomRecord.room.gameSummary = this.createGameSummary(roomRecord);
+    roomRecord.room.activeGame = null;
+    roomRecord.drawerState = null;
+    roomRecord.room.chatMessages = [this.createSystemMessage("Game over.")];
+  }
+
+  private createGameSummary(roomRecord: RoomRecord): GameSummary {
+    const rankedPlayers = [...roomRecord.room.players].sort(
+      (leftPlayer, rightPlayer) =>
+        rightPlayer.score - leftPlayer.score || leftPlayer.name.localeCompare(rightPlayer.name)
+    );
+    const topScore = rankedPlayers[0]?.score ?? 0;
+    const winnerPlayerIds = rankedPlayers
+      .filter((player) => player.score === topScore)
+      .map((player) => player.id);
+
+    const statsByPlayer = roomRecord.room.players.map((player) => ({
+      player,
+      stats: this.getPlayerGameStats(roomRecord, player.id)
+    }));
+    const fastestGuessEntries = statsByPlayer
+      .filter((entry) => entry.stats.fastestGuessMs !== null)
+      .sort((leftEntry, rightEntry) => {
+        const leftGuessMs = leftEntry.stats.fastestGuessMs ?? Number.MAX_SAFE_INTEGER;
+        const rightGuessMs = rightEntry.stats.fastestGuessMs ?? Number.MAX_SAFE_INTEGER;
+        return leftGuessMs - rightGuessMs || leftEntry.player.name.localeCompare(rightEntry.player.name);
+      });
+    const fastestGuesser = fastestGuessEntries[0];
+
+    const mostCorrectGuessCount = Math.max(0, ...statsByPlayer.map((entry) => entry.stats.correctGuesses));
+    const mostCorrectGuessPlayerIds =
+      mostCorrectGuessCount > 0
+        ? statsByPlayer
+            .filter((entry) => entry.stats.correctGuesses === mostCorrectGuessCount)
+            .map((entry) => entry.player.id)
+        : [];
+
+    const bestDrawerPoints = Math.max(0, ...statsByPlayer.map((entry) => entry.stats.drawerPoints));
+    const bestDrawerPlayerIds =
+      bestDrawerPoints > 0
+        ? statsByPlayer
+            .filter((entry) => entry.stats.drawerPoints === bestDrawerPoints)
+            .map((entry) => entry.player.id)
+        : [];
+
+    return {
+      winnerPlayerIds,
+      fastestGuesserPlayerId: fastestGuesser?.player.id ?? null,
+      fastestGuessMs: fastestGuesser?.stats.fastestGuessMs ?? null,
+      mostCorrectGuessPlayerIds,
+      mostCorrectGuessCount,
+      bestDrawerPlayerIds,
+      bestDrawerPoints,
+      zeroCorrectGuessPlayerIds: statsByPlayer
+        .filter((entry) => entry.stats.correctGuesses === 0)
+        .map((entry) => entry.player.id)
     };
   }
 

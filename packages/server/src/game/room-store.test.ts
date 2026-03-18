@@ -411,6 +411,82 @@ test("guesser disconnect during drawing can end the turn when all remaining gues
   assert.equal(nextTurnRoom?.activeGame?.turnStage, TurnStage.ChoosingWord);
 });
 
+test("finished games include summary awards and zero-correct callouts", () => {
+  const { roomCode, socketIds, store } = createStartedRoom(["Host", "Guest1", "Guest2"]);
+  const roomAtStart = store.getRoomByCode(roomCode);
+  assert.ok(roomAtStart?.activeGame);
+  roomAtStart.activeGame.totalRounds = 1;
+
+  const hostWord = chooseFirstWord(store, socketIds[0]!);
+  const roomAfterHostChoice = store.getRoomByCode(roomCode);
+  assert.ok(roomAfterHostChoice?.activeGame);
+  roomAfterHostChoice.activeGame.phaseEndsAt = Date.now() + getRoundTimerDurationMs(60) - 2_000;
+  const guest1Guess = store.submitGuess(socketIds[1]!, {
+    guess: hostWord
+  });
+  if (!guest1Guess.ok) {
+    assert.fail(guest1Guess.error.message);
+  }
+  store.finishCurrentTurn(roomCode, "time_up");
+  store.advanceTurn(roomCode);
+
+  const guest1Word = chooseFirstWord(store, socketIds[1]!);
+  const roomAfterGuest1Choice = store.getRoomByCode(roomCode);
+  assert.ok(roomAfterGuest1Choice?.activeGame);
+  roomAfterGuest1Choice.activeGame.phaseEndsAt = Date.now() + getRoundTimerDurationMs(60) - 5_000;
+  const hostGuess = store.submitGuess(socketIds[0]!, {
+    guess: guest1Word
+  });
+  if (!hostGuess.ok) {
+    assert.fail(hostGuess.error.message);
+  }
+  store.finishCurrentTurn(roomCode, "time_up");
+  store.advanceTurn(roomCode);
+
+  chooseFirstWord(store, socketIds[2]!);
+  store.finishCurrentTurn(roomCode, "time_up");
+  store.advanceTurn(roomCode);
+
+  const finishedRoom = store.getRoomByCode(roomCode);
+  assert.equal(finishedRoom?.phase, GamePhase.Finished);
+  assert.ok(finishedRoom?.gameSummary);
+  assert.deepEqual(
+    finishedRoom.gameSummary?.winnerPlayerIds.map(
+      (playerId) => finishedRoom.players.find((player) => player.id === playerId)?.name
+    ),
+    ["Guest1", "Host"]
+  );
+  assert.equal(
+    finishedRoom?.players.find((player) => player.id === finishedRoom.gameSummary?.fastestGuesserPlayerId)?.name,
+    "Guest1"
+  );
+  assert.ok(
+    typeof finishedRoom.gameSummary?.fastestGuessMs === "number" &&
+      finishedRoom.gameSummary.fastestGuessMs >= 1_500 &&
+      finishedRoom.gameSummary.fastestGuessMs <= 2_500
+  );
+  assert.deepEqual(
+    finishedRoom.gameSummary?.mostCorrectGuessPlayerIds.map(
+      (playerId) => finishedRoom.players.find((player) => player.id === playerId)?.name
+    ),
+    ["Host", "Guest1"]
+  );
+  assert.equal(finishedRoom.gameSummary?.mostCorrectGuessCount, 1);
+  assert.deepEqual(
+    finishedRoom.gameSummary?.bestDrawerPlayerIds.map(
+      (playerId) => finishedRoom.players.find((player) => player.id === playerId)?.name
+    ),
+    ["Host", "Guest1"]
+  );
+  assert.equal(finishedRoom.gameSummary?.bestDrawerPoints, 50);
+  assert.deepEqual(
+    finishedRoom.gameSummary?.zeroCorrectGuessPlayerIds.map(
+      (playerId) => finishedRoom.players.find((player) => player.id === playerId)?.name
+    ),
+    ["Guest2"]
+  );
+});
+
 test("host can return a finished room to the lobby and reset scores", () => {
   const { roomCode, socketIds, store } = createStartedRoom(["Host", "Guest"], {
     totalRounds: 3,
@@ -441,6 +517,7 @@ test("host can return a finished room to the lobby and reset scores", () => {
 
   const finishedRoom = store.getRoomByCode(roomCode);
   assert.equal(finishedRoom?.phase, GamePhase.Finished);
+  assert.ok(finishedRoom?.gameSummary);
 
   const resetResult = store.returnRoomToLobby(socketIds[0]!);
   if (!resetResult.ok) {
@@ -454,6 +531,7 @@ test("host can return a finished room to the lobby and reset scores", () => {
     totalRounds: 3,
     roundTimerSeconds: 90
   });
+  assert.equal(resetResult.room.gameSummary, null);
   assert.ok(resetResult.room.players.every((player) => player.score === 0));
 });
 

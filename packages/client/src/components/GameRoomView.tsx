@@ -13,6 +13,26 @@ import { DrawingCanvas } from "./DrawingCanvas.js";
 const DRAW_COLORS = ["#111827", "#ef4444", "#2563eb", "#16a34a", "#f59e0b", "#9333ea"] as const;
 const BRUSH_SIZES = [4, 8, 12] as const;
 
+const formatNameList = (names: string[]) => {
+  if (names.length <= 1) {
+    return names[0] ?? "Nobody";
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]}`;
+  }
+
+  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+};
+
+const formatDurationSeconds = (durationMs: number | null) => {
+  if (durationMs === null) {
+    return "No correct guesses";
+  }
+
+  return `${(durationMs / 1000).toFixed(1)}s fastest guess`;
+};
+
 type GameRoomViewProps = {
   currentDrawerName: string;
   currentPlayerName: string;
@@ -65,6 +85,18 @@ export const GameRoomView = ({
   );
   const topScore = rankedPlayers[0]?.score ?? 0;
   const winningPlayers = rankedPlayers.filter((player) => player.score === topScore);
+  const gameSummary = room.gameSummary;
+  const getPlayerName = (playerId: string) =>
+    room.players.find((player) => player.id === playerId)?.name ?? "Unknown player";
+  const winnerNames =
+    gameSummary?.winnerPlayerIds.map(getPlayerName) ?? winningPlayers.map((player) => player.name);
+  const fastestGuesserName = gameSummary?.fastestGuesserPlayerId
+    ? getPlayerName(gameSummary.fastestGuesserPlayerId)
+    : "Nobody";
+  const mostCorrectGuesserNames =
+    gameSummary?.mostCorrectGuessPlayerIds.map(getPlayerName) ?? [];
+  const bestDrawerNames = gameSummary?.bestDrawerPlayerIds.map(getPlayerName) ?? [];
+  const zeroCorrectGuessNames = gameSummary?.zeroCorrectGuessPlayerIds.map(getPlayerName) ?? [];
   const currentPlayerStanding = Math.max(
     1,
     rankedPlayers.findIndex((player) => player.name === currentPlayerName) + 1
@@ -313,11 +345,105 @@ export const GameRoomView = ({
                   Summary
                 </div>
                 <div style={{ fontSize: "1.125rem", fontWeight: 700, marginTop: "0.25rem" }}>
-                  {winningPlayers.length > 1 ? "Tie game" : `${winningPlayers[0]?.name} wins`}
+                  {winnerNames.length > 1 ? "Tie game" : `${winnerNames[0] ?? "Nobody"} wins`}
                 </div>
                 <div style={{ color: "var(--color-text-secondary)", fontSize: "0.8125rem", lineHeight: 1.5, marginTop: "0.25rem" }}>
                   {room.chatMessages.at(-1)?.text ?? "The match is complete."}
                 </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: "0.625rem"
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--color-text-muted)",
+                    fontSize: "0.6875rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase"
+                  }}
+                >
+                  Awards
+                </div>
+
+                {[
+                  {
+                    label: "Winner",
+                    value: formatNameList(winnerNames),
+                    detail: `${topScore} point${topScore === 1 ? "" : "s"}`
+                  },
+                  {
+                    label: "Fastest Guesser",
+                    value: fastestGuesserName,
+                    detail: formatDurationSeconds(gameSummary?.fastestGuessMs ?? null)
+                  },
+                  {
+                    label: "Most Correct Guesses",
+                    value:
+                      mostCorrectGuesserNames.length > 0
+                        ? formatNameList(mostCorrectGuesserNames)
+                        : "Nobody",
+                    detail: `${gameSummary?.mostCorrectGuessCount ?? 0} correct guess${
+                      (gameSummary?.mostCorrectGuessCount ?? 0) === 1 ? "" : "es"
+                    }`
+                  },
+                  {
+                    label: "Best Drawer",
+                    value: bestDrawerNames.length > 0 ? formatNameList(bestDrawerNames) : "Nobody",
+                    detail: `${gameSummary?.bestDrawerPoints ?? 0} drawer point${
+                      (gameSummary?.bestDrawerPoints ?? 0) === 1 ? "" : "s"
+                    }`
+                  }
+                ].map((award) => (
+                  <div
+                    key={award.label}
+                    style={{
+                      background: "var(--color-bg-subtle)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "6px",
+                      padding: "0.75rem"
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "var(--color-text-muted)",
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase"
+                      }}
+                    >
+                      {award.label}
+                    </div>
+                    <div style={{ fontSize: "1rem", fontWeight: 700, marginTop: "0.1875rem" }}>
+                      {award.value}
+                    </div>
+                    <div style={{ color: "var(--color-text-secondary)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
+                      {award.detail}
+                    </div>
+                  </div>
+                ))}
+
+                {zeroCorrectGuessNames.length > 0 ? (
+                  <div
+                    style={{
+                      background: "var(--color-bg-error)",
+                      border: "1px solid var(--color-border-error)",
+                      borderRadius: "6px",
+                      color: "var(--color-status-error)",
+                      fontSize: "0.8125rem",
+                      fontWeight: 600,
+                      lineHeight: 1.5,
+                      padding: "0.75rem"
+                    }}
+                  >
+                    {`Yikes, ${formatNameList(zeroCorrectGuessNames)} — better luck next time.`}
+                  </div>
+                ) : null}
               </div>
 
               <div

@@ -52,6 +52,17 @@ export type LobbySettings = {
   roundTimerSeconds: number;
 };
 
+export type GameSummary = {
+  winnerPlayerIds: PlayerId[];
+  fastestGuesserPlayerId: PlayerId | null;
+  fastestGuessMs: number | null;
+  mostCorrectGuessPlayerIds: PlayerId[];
+  mostCorrectGuessCount: number;
+  bestDrawerPlayerIds: PlayerId[];
+  bestDrawerPoints: number;
+  zeroCorrectGuessPlayerIds: PlayerId[];
+};
+
 export type RoomState = {
   roomCode: RoomCode;
   phase: GamePhase;
@@ -59,6 +70,7 @@ export type RoomState = {
   hostPlayerId: PlayerId | null;
   settings: LobbySettings;
   activeGame: ActiveGame | null;
+  gameSummary: GameSummary | null;
   chatMessages: ChatMessage[];
 };
 
